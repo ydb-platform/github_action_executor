@@ -134,18 +134,52 @@ docker-compose up -d
 
 ## Использование
 
+### Через веб-интерфейс
+
 1. Откройте веб-интерфейс
-2. Авторизуйтесь через GitHub
+2. Авторизуйтесь через GitHub (один раз)
 3. Укажите репозиторий и workflow
 4. Выберите тесты для запуска
 5. Нажмите "Запустить Workflow"
+6. Откроется страница с результатом запуска
+
+### Прямая ссылка (без UI)
+
+Вы можете создать прямую ссылку для запуска workflow:
+
+```
+http://your-server/workflow/trigger?owner=owner_name&repo=my-repo&workflow_id=ci.yml&ref=main&tests=unit,integration
+```
+
+При клике по ссылке:
+1. Если не авторизован → редирект на GitHub OAuth
+2. После авторизации → сразу запускается workflow
+3. Показывается страница с результатом
+
+### Через curl (с OAuth сессией)
+
+1. Авторизуйтесь один раз в браузере
+2. Скопируйте cookie сессии из браузера
+3. Используйте в curl:
+
+```bash
+# HTML результат
+curl "http://your-server/workflow/trigger?owner=owner_name&repo=my-repo&workflow_id=ci.yml&ref=main&tests=unit,integration" \
+  -H "Cookie: session=YOUR_SESSION_COOKIE"
+
+# JSON результат
+curl "http://your-server/workflow/trigger?owner=owner_name&repo=my-repo&workflow_id=ci.yml" \
+  -H "Cookie: session=YOUR_SESSION_COOKIE" \
+  -H "Accept: application/json"
+```
 
 ## API Endpoints
 
 ### Web Interface
 - `GET /` - Главная страница
 - `GET /workflow/form` - Форма выбора тестов
-- `POST /workflow/trigger` - Запуск workflow
+- `GET /workflow/trigger` - Универсальный endpoint для запуска workflow (через URL)
+- `POST /workflow/trigger` - Запуск workflow из формы
 
 ### Authentication
 - `GET /auth/github` - Начать OAuth авторизацию

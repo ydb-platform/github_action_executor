@@ -28,40 +28,115 @@
                 
                 <div class="form-group">
                     <label for="ref">Ветка:</label>
-                    <input type="text" id="ref" name="ref" value="main" required>
+                    <input type="text" id="ref" name="ref" value="{{ ref or 'main' }}" required>
                 </div>
 
-                <div class="form-group">
-                    <label>Выберите тесты для запуска:</label>
-                    <div class="checkbox-group">
-                        <label class="checkbox-label">
-                            <input type="checkbox" name="tests" value="unit">
-                            <span>Unit тесты</span>
-                        </label>
-                        <label class="checkbox-label">
-                            <input type="checkbox" name="tests" value="integration">
-                            <span>Integration тесты</span>
-                        </label>
-                        <label class="checkbox-label">
-                            <input type="checkbox" name="tests" value="e2e">
-                            <span>E2E тесты</span>
-                        </label>
-                        <label class="checkbox-label">
-                            <input type="checkbox" name="tests" value="lint">
-                            <span>Lint проверки</span>
-                        </label>
-                        <label class="checkbox-label">
-                            <input type="checkbox" name="tests" value="build">
-                            <span>Build проверка</span>
-                        </label>
+                {# Отладочная информация - можно убрать после проверки #}
+                {% if workflow_info %}
+                    <div class="info-section" style="margin-bottom: 20px; font-size: 0.9em; background: #fff3cd; border-left: 4px solid #ffc107;">
+                        <p><strong>Workflow найден:</strong> {{ workflow_info.get('found', False) }}</p>
+                        <p><strong>Количество inputs:</strong> {{ inputs_schema|length }}</p>
+                        {% if inputs_schema %}
+                            <p><strong>Inputs keys:</strong> 
+                                {% for key in inputs_schema.keys() %}
+                                    {{ key }}{% if not loop.last %}, {% endif %}
+                                {% endfor %}
+                            </p>
+                        {% else %}
+                            <p><strong>Inputs schema пустой или None</strong></p>
+                        {% endif %}
                     </div>
-                </div>
+                {% endif %}
 
-                <div id="loading" class="loading" style="display: none;">
-                    <p>⏳ Запуск workflow...</p>
-                </div>
-
-                <div id="result" class="result" style="display: none;"></div>
+                {% if inputs_schema %}
+                    {% if inputs_schema|length > 0 %}
+                    {# Динамические поля на основе workflow inputs #}
+                    {% for input_name, input_config in inputs_schema.items() %}
+                        <div class="form-group">
+                            <label for="input_{{ input_name }}">
+                                {% set field_label = input_config.get('description', '') %}
+                                {% if field_label %}
+                                    {{ field_label }}
+                                {% else %}
+                                    {{ input_name|replace('_', ' ')|title }}
+                                {% endif %}
+                                {% if input_config.get('required', False) %}
+                                    <span class="required">*</span>
+                                {% endif %}
+                            </label>
+                            
+                            {% if input_config.get('type') == 'choice' %}
+                                {# Select для choice #}
+                                <select id="input_{{ input_name }}" name="{{ input_name }}" 
+                                        {% if input_config.get('required', False) %}required{% endif %}
+                                        class="form-select">
+                                    {% if not input_config.get('required', False) %}
+                                        <option value="">-- Не выбрано --</option>
+                                    {% endif %}
+                                    {% for option in input_config.get('options', []) %}
+                                        <option value="{{ option }}" 
+                                                {% if option == input_config.get('default') %}selected{% endif %}>
+                                            {{ option }}
+                                        </option>
+                                    {% endfor %}
+                                </select>
+                            {% elif input_config.get('type') == 'boolean' %}
+                                {# Checkbox для boolean #}
+                                <label class="checkbox-label">
+                                    <input type="checkbox" id="input_{{ input_name }}" name="{{ input_name }}" 
+                                           value="true"
+                                           {% if input_config.get('default', False) %}checked{% endif %}>
+                                    <span>{{ input_config.get('description', input_name) }}</span>
+                                </label>
+                            {% elif input_config.get('type') == 'environment' %}
+                                {# Select для environment #}
+                                <select id="input_{{ input_name }}" name="{{ input_name }}" 
+                                        {% if input_config.get('required', False) %}required{% endif %}
+                                        class="form-select">
+                                    {% if not input_config.get('required', False) %}
+                                        <option value="">-- Не выбрано --</option>
+                                    {% endif %}
+                                    {% for env in ['production', 'staging', 'development', 'test'] %}
+                                        <option value="{{ env }}" 
+                                                {% if env == input_config.get('default') %}selected{% endif %}>
+                                            {{ env }}
+                                        </option>
+                                    {% endfor %}
+                                </select>
+                            {% else %}
+                                {# Text input для string и других типов #}
+                                {% set field_placeholder = input_config.get('description', '') %}
+                                {% if not field_placeholder %}
+                                    {% set field_placeholder = input_name|replace('_', ' ')|title %}
+                                {% endif %}
+                                <input type="text" 
+                                       id="input_{{ input_name }}" 
+                                       name="{{ input_name }}" 
+                                       value="{{ input_config.get('default', '') }}"
+                                       placeholder="{{ field_placeholder }}"
+                                       {% if input_config.get('required', False) %}required{% endif %}
+                                       class="form-input">
+                            {% endif %}
+                        </div>
+                    {% endfor %}
+                    {% else %}
+                        {# inputs_schema существует, но пустой #}
+                        <div class="info-section">
+                            <p>Workflow найден, но в нем нет определенных inputs в workflow_dispatch.</p>
+                        </div>
+                    {% endif %}
+                {% else %}
+                    {# Если workflow info не получен или inputs не найдены - не показываем ничего #}
+                    {% if not workflow_info %}
+                        <div class="info-section">
+                            <p>Не удалось получить информацию о workflow. Используйте прямые параметры в URL.</p>
+                        </div>
+                    {% elif workflow_info.get('found') and inputs_schema|length == 0 %}
+                        <div class="info-section">
+                            <p>Workflow найден, но в нем нет определенных inputs в workflow_dispatch.</p>
+                        </div>
+                    {% endif %}
+                {% endif %}
 
                 <button type="submit" class="btn btn-primary" id="submitBtn">
                     🚀 Запустить Workflow
@@ -71,68 +146,53 @@
     </div>
 
     <script>
-        document.getElementById('testForm').addEventListener('submit', async function(e) {
-            e.preventDefault();
-            
+        // Обработка формы
+        document.getElementById('testForm').addEventListener('submit', function(e) {
             const form = e.target;
             const submitBtn = document.getElementById('submitBtn');
-            const loading = document.getElementById('loading');
-            const result = document.getElementById('result');
             
-            // Disable submit button
-            submitBtn.disabled = true;
-            loading.style.display = 'block';
-            result.style.display = 'none';
-            
-            // Get form data
-            const formData = new FormData(form);
-            const tests = formData.getAll('tests');
-            
-            // Prepare data
-            const data = {
-                owner: formData.get('owner'),
-                repo: formData.get('repo'),
-                workflow_id: formData.get('workflow_id'),
-                ref: formData.get('ref'),
-                tests: tests.join(',')
-            };
-            
-            try {
-                const response = await fetch('/workflow/trigger', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/x-www-form-urlencoded',
-                    },
-                    body: new URLSearchParams(data)
+            // Обработка чекбоксов tests (для fallback режима)
+            const testsCheckboxes = form.querySelectorAll('input[name="tests"][type="checkbox"]');
+            if (testsCheckboxes.length > 0) {
+                const selectedTests = [];
+                testsCheckboxes.forEach(function(checkbox) {
+                    if (checkbox.checked) {
+                        selectedTests.push(checkbox.value);
+                    }
+                    checkbox.disabled = true;
                 });
                 
-                const responseData = await response.json();
+                // Удаляем старые скрытые поля tests (если есть)
+                form.querySelectorAll('input[name="tests"][type="hidden"]').forEach(function(input) {
+                    input.remove();
+                });
                 
-                if (response.ok && responseData.success) {
-                    result.className = 'result success';
-                    result.innerHTML = `
-                        <h3>✅ Успешно!</h3>
-                        <p>${responseData.message}</p>
-                        <p>Workflow: <strong>${responseData.workflow}</strong></p>
-                    `;
-                } else {
-                    result.className = 'result error';
-                    result.innerHTML = `
-                        <h3>❌ Ошибка</h3>
-                        <p>${responseData.detail || responseData.message || 'Неизвестная ошибка'}</p>
-                    `;
+                // Добавляем новое скрытое поле со строкой тестов
+                if (selectedTests.length > 0) {
+                    const testsInput = document.createElement('input');
+                    testsInput.type = 'hidden';
+                    testsInput.name = 'tests';
+                    testsInput.value = selectedTests.join(',');
+                    form.appendChild(testsInput);
                 }
-            } catch (error) {
-                result.className = 'result error';
-                result.innerHTML = `
-                    <h3>❌ Ошибка</h3>
-                    <p>${error.message}</p>
-                `;
-            } finally {
-                loading.style.display = 'none';
-                submitBtn.disabled = false;
-                result.style.display = 'block';
             }
+            
+            // Обработка boolean полей - конвертируем в строку
+            form.querySelectorAll('input[type="checkbox"][name!="tests"]').forEach(function(checkbox) {
+                if (!checkbox.checked) {
+                    // Для невыбранных boolean создаем скрытое поле со значением false
+                    const hiddenInput = document.createElement('input');
+                    hiddenInput.type = 'hidden';
+                    hiddenInput.name = checkbox.name;
+                    hiddenInput.value = 'false';
+                    form.appendChild(hiddenInput);
+                } else {
+                    checkbox.value = 'true';
+                }
+            });
+            
+            submitBtn.disabled = true;
+            submitBtn.textContent = '⏳ Запуск workflow...';
         });
     </script>
 </body>

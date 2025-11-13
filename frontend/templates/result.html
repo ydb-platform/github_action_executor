@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Результат запуска - GitHub Action Executor</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>📊 Результат запуска Workflow</h1>
+        </header>
+
+        {% if user %}
+        <div class="user-info">
+            <img src="{{ user.avatar_url }}" alt="{{ user.login }}" class="avatar">
+            <span>{{ user.login }}</span>
+            <a href="/" class="btn btn-secondary">На главную</a>
+        </div>
+        {% endif %}
+
+        <main>
+            {% if success %}
+            <div class="result success">
+                <div class="result-icon">✅</div>
+                <h2>Успешно!</h2>
+                <p class="result-message">{{ message }}</p>
+                
+                <div class="workflow-info">
+                    <div class="info-item">
+                        <strong>Репозиторий:</strong>
+                        <a href="https://github.com/{{ owner }}/{{ repo }}" target="_blank">
+                            {{ owner }}/{{ repo }}
+                        </a>
+                    </div>
+                    <div class="info-item">
+                        <strong>Workflow:</strong> {{ workflow_id }}
+                    </div>
+                    <div class="info-item">
+                        <strong>Ветка:</strong> {{ ref }}
+                    </div>
+                    {% if inputs and inputs.tests %}
+                    <div class="info-item">
+                        <strong>Тесты:</strong> {{ inputs.tests }}
+                    </div>
+                    {% endif %}
+                </div>
+
+                <div class="action-links">
+                    {% if run_url %}
+                    <a href="{{ run_url }}" target="_blank" class="btn btn-primary">
+                        🔗 Открыть в GitHub Actions
+                    </a>
+                    {% elif workflow_url %}
+                    <a href="{{ workflow_url }}" target="_blank" class="btn btn-primary">
+                        🔗 Открыть Workflow в GitHub
+                    </a>
+                    {% endif %}
+                    
+                    <a href="/workflow/form?owner={{ owner }}&repo={{ repo }}&workflow_id={{ workflow_id }}" class="btn btn-secondary">
+                        🔄 Запустить еще раз
+                    </a>
+                </div>
+            </div>
+            {% else %}
+            <div class="result error">
+                <div class="result-icon">❌</div>
+                <h2>Ошибка</h2>
+                <p class="result-message">{{ error or message or "Неизвестная ошибка" }}</p>
+                
+                {% if owner and repo and workflow_id %}
+                <div class="workflow-info">
+                    <div class="info-item">
+                        <strong>Репозиторий:</strong> {{ owner }}/{{ repo }}
+                    </div>
+                    <div class="info-item">
+                        <strong>Workflow:</strong> {{ workflow_id }}
+                    </div>
+                </div>
+                {% endif %}
+
+                <div class="action-links">
+                    {% if owner and repo and workflow_id %}
+                    <a href="/workflow/form?owner={{ owner }}&repo={{ repo }}&workflow_id={{ workflow_id }}" class="btn btn-secondary">
+                        🔄 Попробовать еще раз
+                    </a>
+                    {% endif %}
+                    <a href="/" class="btn btn-secondary">На главную</a>
+                </div>
+            </div>
+            {% endif %}
+        </main>
+    </div>
+</body>
+</html>
+

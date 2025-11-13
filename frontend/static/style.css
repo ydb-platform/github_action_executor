@@ -92,9 +92,35 @@ header h1 {
     transition: border-color 0.3s;
 }
 
-.form-group input[type="text"]:focus {
+.form-group input[type="text"]:focus,
+.form-group select:focus {
     outline: none;
     border-color: #667eea;
+}
+
+.form-select {
+    width: 100%;
+    padding: 12px;
+    border: 2px solid #e0e0e0;
+    border-radius: 6px;
+    font-size: 1em;
+    background: white;
+    cursor: pointer;
+    transition: border-color 0.3s;
+}
+
+.form-input {
+    width: 100%;
+    padding: 12px;
+    border: 2px solid #e0e0e0;
+    border-radius: 6px;
+    font-size: 1em;
+    transition: border-color 0.3s;
+}
+
+.required {
+    color: #dc3545;
+    margin-left: 4px;
 }
 
 .checkbox-group {
@@ -170,9 +196,10 @@ header h1 {
 }
 
 .result {
-    padding: 20px;
+    padding: 30px;
     border-radius: 8px;
     margin: 20px 0;
+    text-align: center;
 }
 
 .result.success {
@@ -187,8 +214,60 @@ header h1 {
     color: #721c24;
 }
 
-.result h3 {
-    margin-bottom: 10px;
+.result-icon {
+    font-size: 4em;
+    margin-bottom: 15px;
+}
+
+.result h2 {
+    margin-bottom: 15px;
+    font-size: 1.8em;
+}
+
+.result-message {
+    font-size: 1.1em;
+    margin-bottom: 25px;
+}
+
+.workflow-info {
+    background: rgba(255, 255, 255, 0.7);
+    padding: 20px;
+    border-radius: 8px;
+    margin: 20px 0;
+    text-align: left;
+}
+
+.info-item {
+    margin-bottom: 12px;
+    padding: 8px 0;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.info-item:last-child {
+    border-bottom: none;
+}
+
+.info-item strong {
+    display: inline-block;
+    min-width: 120px;
+    color: #333;
+}
+
+.info-item a {
+    color: #667eea;
+    text-decoration: none;
+}
+
+.info-item a:hover {
+    text-decoration: underline;
+}
+
+.action-links {
+    display: flex;
+    gap: 15px;
+    justify-content: center;
+    margin-top: 25px;
+    flex-wrap: wrap;
 }
 
 .info-section {
