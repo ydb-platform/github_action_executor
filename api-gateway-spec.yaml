@@ -1,0 +1,20 @@
+openapi: 3.0.0
+info:
+  title: GitHub Action Executor API Gateway
+  version: 1.0.0
+servers:
+  - url: https://github-action-executor.example.com
+paths:
+  /{proxy+}:
+    x-yc-apigateway-any-method:
+      x-yc-apigateway-integration:
+        type: cloud_functions
+        function_id: ${function_id}
+        service_account_id: ${service_account_id}
+  /:
+    x-yc-apigateway-any-method:
+      x-yc-apigateway-integration:
+        type: cloud_functions
+        function_id: ${function_id}
+        service_account_id: ${service_account_id}
+

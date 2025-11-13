@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GitHub Action Executor</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🚀 GitHub Action Executor</h1>
+            <p class="subtitle">Запуск GitHub Actions workflows с проверкой прав</p>
+        </header>
+
+        <div class="auth-section">
+            {% if user %}
+                <div class="user-info">
+                    <img src="{{ user.avatar_url }}" alt="{{ user.login }}" class="avatar">
+                    <span>Привет, <strong>{{ user.login }}</strong>!</span>
+                    <a href="/auth/logout" class="btn btn-secondary">Выйти</a>
+                </div>
+            {% else %}
+                <div class="login-prompt">
+                    <p>Для запуска workflow необходимо авторизоваться через GitHub</p>
+                    <a href="/auth/github" class="btn btn-primary">Войти через GitHub</a>
+                </div>
+            {% endif %}
+        </div>
+
+        {% if user %}
+        <main>
+            <div class="form-container">
+                <h2>Запустить Workflow</h2>
+                <form action="/workflow/form" method="get" class="workflow-form">
+                    <div class="form-group">
+                        <label for="owner">Владелец репозитория:</label>
+                        <input type="text" id="owner" name="owner" 
+                               value="{{ default_owner or '' }}" 
+                               placeholder="username или organization" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="repo">Название репозитория:</label>
+                        <input type="text" id="repo" name="repo" 
+                               value="{{ default_repo or '' }}" 
+                               placeholder="repo-name" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="workflow_id">Workflow ID (имя файла):</label>
+                        <input type="text" id="workflow_id" name="workflow_id" 
+                               value="{{ default_workflow_id or '' }}" 
+                               placeholder="ci.yml" required>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-primary">Продолжить</button>
+                </form>
+            </div>
+
+            <div class="info-section">
+                <h3>Как это работает:</h3>
+                <ol>
+                    <li>Укажите репозиторий и workflow файл</li>
+                    <li>Выберите тесты для запуска</li>
+                    <li>Workflow запустится автоматически с выбранными параметрами</li>
+                </ol>
+            </div>
+        </main>
+        {% endif %}
+    </div>
+</body>
+</html>
+

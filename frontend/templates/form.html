@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Выбор тестов - GitHub Action Executor</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🎯 Выбор тестов</h1>
+            <p class="subtitle">Репозиторий: <strong>{{ owner }}/{{ repo }}</strong></p>
+            <p class="subtitle">Workflow: <strong>{{ workflow_id }}</strong></p>
+        </header>
+
+        <div class="user-info">
+            <img src="{{ user.avatar_url }}" alt="{{ user.login }}" class="avatar">
+            <span>{{ user.login }}</span>
+            <a href="/" class="btn btn-secondary">Назад</a>
+        </div>
+
+        <main>
+            <form id="testForm" action="/workflow/trigger" method="post" class="test-form">
+                <input type="hidden" name="owner" value="{{ owner }}">
+                <input type="hidden" name="repo" value="{{ repo }}">
+                <input type="hidden" name="workflow_id" value="{{ workflow_id }}">
+                
+                <div class="form-group">
+                    <label for="ref">Ветка:</label>
+                    <input type="text" id="ref" name="ref" value="main" required>
+                </div>
+
+                <div class="form-group">
+                    <label>Выберите тесты для запуска:</label>
+                    <div class="checkbox-group">
+                        <label class="checkbox-label">
+                            <input type="checkbox" name="tests" value="unit">
+                            <span>Unit тесты</span>
+                        </label>
+                        <label class="checkbox-label">
+                            <input type="checkbox" name="tests" value="integration">
+                            <span>Integration тесты</span>
+                        </label>
+                        <label class="checkbox-label">
+                            <input type="checkbox" name="tests" value="e2e">
+                            <span>E2E тесты</span>
+                        </label>
+                        <label class="checkbox-label">
+                            <input type="checkbox" name="tests" value="lint">
+                            <span>Lint проверки</span>
+                        </label>
+                        <label class="checkbox-label">
+                            <input type="checkbox" name="tests" value="build">
+                            <span>Build проверка</span>
+                        </label>
+                    </div>
+                </div>
+
+                <div id="loading" class="loading" style="display: none;">
+                    <p>⏳ Запуск workflow...</p>
+                </div>
+
+                <div id="result" class="result" style="display: none;"></div>
+
+                <button type="submit" class="btn btn-primary" id="submitBtn">
+                    🚀 Запустить Workflow
+                </button>
+            </form>
+        </main>
+    </div>
+
+    <script>
+        document.getElementById('testForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const form = e.target;
+            const submitBtn = document.getElementById('submitBtn');
+            const loading = document.getElementById('loading');
+            const result = document.getElementById('result');
+            
+            // Disable submit button
+            submitBtn.disabled = true;
+            loading.style.display = 'block';
+            result.style.display = 'none';
+            
+            // Get form data
+            const formData = new FormData(form);
+            const tests = formData.getAll('tests');
+            
+            // Prepare data
+            const data = {
+                owner: formData.get('owner'),
+                repo: formData.get('repo'),
+                workflow_id: formData.get('workflow_id'),
+                ref: formData.get('ref'),
+                tests: tests.join(',')
+            };
+            
+            try {
+                const response = await fetch('/workflow/trigger', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                    body: new URLSearchParams(data)
+                });
+                
+                const responseData = await response.json();
+                
+                if (response.ok && responseData.success) {
+                    result.className = 'result success';
+                    result.innerHTML = `
+                        <h3>✅ Успешно!</h3>
+                        <p>${responseData.message}</p>
+                        <p>Workflow: <strong>${responseData.workflow}</strong></p>
+                    `;
+                } else {
+                    result.className = 'result error';
+                    result.innerHTML = `
+                        <h3>❌ Ошибка</h3>
+                        <p>${responseData.detail || responseData.message || 'Неизвестная ошибка'}</p>
+                    `;
+                }
+            } catch (error) {
+                result.className = 'result error';
+                result.innerHTML = `
+                    <h3>❌ Ошибка</h3>
+                    <p>${error.message}</p>
+                `;
+            } finally {
+                loading.style.display = 'none';
+                submitBtn.disabled = false;
+                result.style.display = 'block';
+            }
+        });
+    </script>
+</body>
+</html>
+

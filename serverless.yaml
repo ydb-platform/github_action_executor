@@ -1,0 +1,32 @@
+# Yandex Cloud Serverless Function configuration
+# Alternative deployment option using Yandex Cloud Functions
+
+service: github-action-executor
+
+provider:
+  name: yandex
+  runtime: python311
+  region: ru-central1
+  environment:
+    SECRET_KEY: ${env:SECRET_KEY}
+    GITHUB_CLIENT_ID: ${env:GITHUB_CLIENT_ID}
+    GITHUB_CLIENT_SECRET: ${env:GITHUB_CLIENT_SECRET}
+    GITHUB_CALLBACK_URL: ${env:GITHUB_CALLBACK_URL}
+    GITHUB_APP_ID: ${env:GITHUB_APP_ID}
+    GITHUB_APP_INSTALLATION_ID: ${env:GITHUB_APP_INSTALLATION_ID}
+    GITHUB_APP_PRIVATE_KEY_PATH: ${env:GITHUB_APP_PRIVATE_KEY_PATH}
+    DEFAULT_REPO_OWNER: ${env:DEFAULT_REPO_OWNER}
+    DEFAULT_REPO_NAME: ${env:DEFAULT_REPO_NAME}
+    DEFAULT_WORKFLOW_ID: ${env:DEFAULT_WORKFLOW_ID}
+
+functions:
+  api:
+    handler: handler.handler
+    events:
+      - http:
+          path: /{proxy+}
+          method: ANY
+      - http:
+          path: /
+          method: ANY
+
