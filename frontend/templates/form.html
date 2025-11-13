@@ -284,9 +284,24 @@
         }
         
         // Инициализация при загрузке
-        document.addEventListener('DOMContentLoaded', function() {
-            initSearchableSelect('workflow_search', 'workflow_id', 'workflow_dropdown');
-            initSearchableSelect('branch_search', 'ref', 'branch_dropdown');
+        function initAll() {
+            console.log('Initializing searchable selects...');
+            const workflowSearch = document.getElementById('workflow_search');
+            const branchSearch = document.getElementById('branch_search');
+            
+            if (workflowSearch) {
+                console.log('Found workflow_search, initializing...');
+                initSearchableSelect('workflow_search', 'workflow_id', 'workflow_dropdown');
+            } else {
+                console.warn('workflow_search not found!');
+            }
+            
+            if (branchSearch) {
+                console.log('Found branch_search, initializing...');
+                initSearchableSelect('branch_search', 'ref', 'branch_dropdown');
+            } else {
+                console.warn('branch_search not found!');
+            }
             
             // Автоматическая перезагрузка формы при изменении workflow
             const workflowSelect = document.getElementById('workflow_id');
@@ -302,7 +317,15 @@
                     window.location.href = `/workflow/form?owner=${owner}&repo=${repo}&workflow_id=${workflowId}&ref=${ref}`;
                 });
             }
-        });
+        }
+        
+        // Инициализация при загрузке DOM
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initAll);
+        } else {
+            // DOM уже загружен
+            initAll();
+        }
         
         // Обработка формы
         document.getElementById('testForm').addEventListener('submit', function(e) {
