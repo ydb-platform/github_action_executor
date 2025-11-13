@@ -31,9 +31,9 @@
                     <input type="text" id="ref" name="ref" value="{{ ref or 'main' }}" required>
                 </div>
 
-                {# Отладочная информация #}
+                {# Отладочная информация - можно убрать после проверки #}
                 {% if workflow_info %}
-                    <div class="info-section" style="margin-bottom: 20px; font-size: 0.9em;">
+                    <div class="info-section" style="margin-bottom: 20px; font-size: 0.9em; background: #fff3cd; border-left: 4px solid #ffc107;">
                         <p><strong>Workflow найден:</strong> {{ workflow_info.get('found', False) }}</p>
                         <p><strong>Количество inputs:</strong> {{ inputs_schema|length }}</p>
                         {% if inputs_schema %}
@@ -117,32 +117,16 @@
                         </div>
                     {% endif %}
                 {% else %}
-                    {# Fallback: старые чекбоксы для тестов, если workflow info не получен #}
-                    <div class="form-group">
-                        <label>Выберите тесты для запуска:</label>
-                        <div class="checkbox-group">
-                            <label class="checkbox-label">
-                                <input type="checkbox" name="tests" value="unit">
-                                <span>Unit тесты</span>
-                            </label>
-                            <label class="checkbox-label">
-                                <input type="checkbox" name="tests" value="integration">
-                                <span>Integration тесты</span>
-                            </label>
-                            <label class="checkbox-label">
-                                <input type="checkbox" name="tests" value="e2e">
-                                <span>E2E тесты</span>
-                            </label>
-                            <label class="checkbox-label">
-                                <input type="checkbox" name="tests" value="lint">
-                                <span>Lint проверки</span>
-                            </label>
-                            <label class="checkbox-label">
-                                <input type="checkbox" name="tests" value="build">
-                                <span>Build проверка</span>
-                            </label>
+                    {# Если workflow info не получен или inputs не найдены - не показываем ничего #}
+                    {% if not workflow_info %}
+                        <div class="info-section">
+                            <p>Не удалось получить информацию о workflow. Используйте прямые параметры в URL.</p>
                         </div>
-                    </div>
+                    {% elif workflow_info.get('found') and inputs_schema|length == 0 %}
+                        <div class="info-section">
+                            <p>Workflow найден, но в нем нет определенных inputs в workflow_dispatch.</p>
+                        </div>
+                    {% endif %}
                 {% endif %}
 
                 <button type="submit" class="btn btn-primary" id="submitBtn">
