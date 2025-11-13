@@ -123,6 +123,77 @@ header h1 {
     margin-left: 4px;
 }
 
+/* Searchable select styles */
+.searchable-select-wrapper {
+    position: relative;
+    width: 100%;
+}
+
+.searchable-select-input {
+    width: 100%;
+    padding: 12px;
+    border: 2px solid #e0e0e0;
+    border-radius: 6px;
+    font-size: 1em;
+    transition: border-color 0.3s;
+    background: white;
+}
+
+.searchable-select-input:focus {
+    outline: none;
+    border-color: #667eea;
+}
+
+.searchable-select {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 0;
+    cursor: pointer;
+    z-index: 1;
+}
+
+.searchable-select-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    max-height: 200px;
+    overflow-y: auto;
+    background: white;
+    border: 2px solid #e0e0e0;
+    border-top: none;
+    border-radius: 0 0 6px 6px;
+    display: none;
+    z-index: 1000;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.searchable-select-dropdown.show {
+    display: block;
+}
+
+.searchable-select-option {
+    padding: 10px 12px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.searchable-select-option:hover {
+    background: #f0f0f0;
+}
+
+.searchable-select-option.selected {
+    background: #667eea;
+    color: white;
+}
+
+.searchable-select-option.hidden {
+    display: none;
+}
+
 .checkbox-group {
     display: flex;
     flex-direction: column;

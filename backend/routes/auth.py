@@ -13,12 +13,22 @@ router = APIRouter()
 
 
 @router.get("/github")
-async def github_login(request: Request):
+async def github_login(request: Request, redirect_after: str = None):
     """Initiate GitHub OAuth login"""
     # Generate state for CSRF protection
     state = secrets.token_urlsafe(32)
     request.session["oauth_state"] = state
-    logger.info(f"OAuth login initiated, state generated: {state[:10]}...")
+    
+    # Save redirect URL if provided
+    if redirect_after:
+        request.session["oauth_redirect_after"] = redirect_after
+    elif "oauth_redirect_after" not in request.session:
+        # Get redirect_after from query parameter if not in session
+        redirect_after = request.query_params.get("redirect_after")
+        if redirect_after:
+            request.session["oauth_redirect_after"] = redirect_after
+    
+    logger.info(f"OAuth login initiated, state generated: {state[:10]}..., redirect_after: {request.session.get('oauth_redirect_after', 'not set')}")
     
     # Redirect to GitHub OAuth
     oauth_url = get_oauth_url(state=state)
@@ -64,8 +74,10 @@ async def github_callback(request: Request, code: str = None, state: str = None)
         request.session.pop("oauth_state", None)
         logger.info(f"Session updated for user: {user_info['login']}")
         
-        # Redirect to main page
-        return RedirectResponse(url="/", status_code=303)
+        # Redirect to saved URL or main page
+        redirect_url = request.session.pop("oauth_redirect_after", "/")
+        logger.info(f"Redirecting after OAuth to: {redirect_url}")
+        return RedirectResponse(url=redirect_url, status_code=303)
     except HTTPException:
         raise
     except Exception as e:

@@ -10,6 +10,8 @@ from fastapi.templating import Jinja2Templates
 from backend.services.permissions import is_contributor, check_repository_access
 from backend.services.workflow import trigger_workflow
 from backend.services.workflow_info import get_workflow_info
+from backend.services.branches import get_branches
+from backend.services.workflows import get_workflows
 from backend.services.github_oauth import get_oauth_url
 
 logger = logging.getLogger(__name__)
@@ -61,6 +63,32 @@ async def workflow_form(
         logger.error(f"Failed to get workflow info: {str(e)}", exc_info=True)
         # Continue without workflow info - form will work with default fields
     
+    # Get branches and workflows lists
+    branches = []
+    workflows_list = []
+    try:
+        if owner and repo:
+            # Получаем ветки и workflows параллельно
+            import asyncio
+            branches_task = get_branches(owner, repo)
+            workflows_task = get_workflows(owner, repo)
+            branches, workflows_list = await asyncio.gather(
+                branches_task,
+                workflows_task,
+                return_exceptions=True
+            )
+            
+            # Обработка исключений
+            if isinstance(branches, Exception):
+                logger.warning(f"Failed to get branches: {str(branches)}")
+                branches = []
+            if isinstance(workflows_list, Exception):
+                logger.warning(f"Failed to get workflows: {str(workflows_list)}")
+                workflows_list = []
+    except Exception as e:
+        logger.warning(f"Failed to get branches/workflows: {str(e)}")
+        # Continue without branches/workflows - user can type manually
+    
     return templates.TemplateResponse(
         "form.html",
         {
@@ -71,7 +99,9 @@ async def workflow_form(
             "workflow_id": workflow_id,
             "ref": ref,
             "workflow_info": workflow_info,
-            "inputs_schema": inputs_schema
+            "inputs_schema": inputs_schema,
+            "branches": branches,
+            "workflows": workflows_list
         }
     )
 
@@ -91,6 +121,11 @@ async def _trigger_and_show_result(
     access_token = request.session.get("access_token")
     
     if not user or not access_token:
+        # Save current URL for redirect after OAuth
+        current_url = str(request.url)
+        request.session["oauth_redirect_after"] = current_url
+        logger.info(f"No session found, saving redirect URL: {current_url}")
+        
         # Redirect to login
         oauth_url = get_oauth_url()
         if return_json:
