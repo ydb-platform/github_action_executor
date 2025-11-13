@@ -31,8 +31,9 @@
                         <input type="text" 
                                id="workflow_search" 
                                class="searchable-select-input" 
-                               placeholder="Поиск workflow..." 
-                               autocomplete="off">
+                               placeholder="{% if workflows and workflows|length > 0 %}Поиск workflow... ({{ workflows|length }} доступно){% else %}Введите workflow ID{% endif %}" 
+                               autocomplete="off"
+                               value="{% if workflow_id %}{{ workflow_id }}{% endif %}">
                         <select id="workflow_id" name="workflow_id" class="searchable-select" required>
                             {% if workflows and workflows|length > 0 %}
                                 {% for workflow in workflows %}
@@ -48,6 +49,9 @@
                         </select>
                         <div class="searchable-select-dropdown" id="workflow_dropdown"></div>
                     </div>
+                    {% if not workflows or workflows|length == 0 %}
+                        <small style="color: #666; font-size: 0.9em;">Не удалось загрузить список workflows. Введите workflow ID вручную.</small>
+                    {% endif %}
                 </div>
                 
                 <div class="form-group">
@@ -56,8 +60,9 @@
                         <input type="text" 
                                id="branch_search" 
                                class="searchable-select-input" 
-                               placeholder="Поиск ветки..." 
-                               autocomplete="off">
+                               placeholder="{% if branches and branches|length > 0 %}Поиск ветки... ({{ branches|length }} доступно){% else %}Введите название ветки{% endif %}" 
+                               autocomplete="off"
+                               value="{% if ref %}{{ ref }}{% elif branches and branches|length > 0 %}main{% else %}main{% endif %}">
                         <select id="ref" name="ref" class="searchable-select" required>
                             {% if branches and branches|length > 0 %}
                                 {% for branch in branches %}
@@ -72,6 +77,9 @@
                         </select>
                         <div class="searchable-select-dropdown" id="branch_dropdown"></div>
                     </div>
+                    {% if not branches or branches|length == 0 %}
+                        <small style="color: #666; font-size: 0.9em;">Не удалось загрузить список веток. Введите название ветки вручную.</small>
+                    {% endif %}
                 </div>
 
 

@@ -147,7 +147,7 @@ async def _trigger_and_show_result(
             error_msg = f"User {username} is not a contributor or does not have access to {owner}/{repo}"
             if return_json:
                 raise HTTPException(status_code=403, detail=error_msg)
-            return templates.TemplateResponse(
+            response = templates.TemplateResponse(
                 "result.html",
                 {
                     "request": request,
@@ -159,6 +159,11 @@ async def _trigger_and_show_result(
                     "workflow_id": workflow_id
                 }
             )
+            # Prevent caching
+            response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+            response.headers["Pragma"] = "no-cache"
+            response.headers["Expires"] = "0"
+            return response
     
     # Trigger workflow
     try:
@@ -173,15 +178,20 @@ async def _trigger_and_show_result(
         
         if return_json:
             if result["success"]:
-                return JSONResponse(content=result)
+                json_response = JSONResponse(content=result)
+                # Prevent caching for JSON responses too
+                json_response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+                json_response.headers["Pragma"] = "no-cache"
+                json_response.headers["Expires"] = "0"
+                return json_response
             else:
                 raise HTTPException(
                     status_code=result["status_code"],
                     detail=result["message"]
                 )
         
-        # Return HTML result page
-        return templates.TemplateResponse(
+        # Return HTML result page with no-cache headers
+        response = templates.TemplateResponse(
             "result.html",
             {
                 "request": request,
@@ -199,13 +209,18 @@ async def _trigger_and_show_result(
                 "error": result.get("message") if not result["success"] else None
             }
         )
+        # Prevent caching to ensure workflow is triggered on each request
+        response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+        response.headers["Pragma"] = "no-cache"
+        response.headers["Expires"] = "0"
+        return response
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Failed to trigger workflow: {str(e)}", exc_info=True)
         if return_json:
             raise HTTPException(status_code=500, detail=f"Failed to trigger workflow: {str(e)}")
-        return templates.TemplateResponse(
+        response = templates.TemplateResponse(
             "result.html",
             {
                 "request": request,
@@ -217,6 +232,11 @@ async def _trigger_and_show_result(
                 "workflow_id": workflow_id
             }
         )
+        # Prevent caching
+        response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+        response.headers["Pragma"] = "no-cache"
+        response.headers["Expires"] = "0"
+        return response
 
 
 @router.get("/trigger")
@@ -263,7 +283,7 @@ async def trigger_workflow_get(
         error_msg = "Repository owner, name, and workflow_id are required"
         if return_json:
             raise HTTPException(status_code=400, detail=error_msg)
-        return templates.TemplateResponse(
+        response = templates.TemplateResponse(
             "result.html",
             {
                 "request": request,
@@ -272,6 +292,11 @@ async def trigger_workflow_get(
                 "error": error_msg
             }
         )
+        # Prevent caching
+        response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+        response.headers["Pragma"] = "no-cache"
+        response.headers["Expires"] = "0"
+        return response
     
     # Parse inputs from query parameters
     # Все параметры кроме служебных считаются inputs
