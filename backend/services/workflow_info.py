@@ -71,8 +71,8 @@ async def get_workflow_info(owner: str, repo: str, workflow_id: str) -> dict:
                 
                 # Decode file content
                 content = base64.b64decode(file_data["content"]).decode("utf-8")
-                logger.debug(f"Workflow file content length: {len(content)} chars")
-                logger.debug(f"First 500 chars of content:\n{content[:500]}")
+                logger.info(f"Workflow file content length: {len(content)} chars")
+                logger.info(f"First 1000 chars of content:\n{content[:1000]}")
                 
                 # Parse YAML
                 # GitHub API не предоставляет inputs напрямую, поэтому парсим YAML вручную
@@ -82,8 +82,20 @@ async def get_workflow_info(owner: str, repo: str, workflow_id: str) -> dict:
                     if not workflow_yaml:
                         logger.warning("Workflow YAML is empty or None after parsing")
                     else:
-                        logger.info(f"Parsed workflow YAML successfully, top-level keys: {list(workflow_yaml.keys())}")
-                        logger.debug(f"Full parsed YAML structure: {workflow_yaml}")
+                        logger.info(f"Parsed workflow YAML successfully, type: {type(workflow_yaml)}")
+                        if isinstance(workflow_yaml, dict):
+                            logger.info(f"Top-level keys: {list(workflow_yaml.keys())}")
+                            # Проверяем наличие 'on' ключа
+                            if 'on' in workflow_yaml:
+                                logger.info(f"'on' key found! Value type: {type(workflow_yaml['on'])}, Value: {workflow_yaml['on']}")
+                            else:
+                                logger.warning(f"'on' key NOT found in top-level keys. Available keys: {list(workflow_yaml.keys())}")
+                                # Проверяем, может быть 'on' это True (булево значение)?
+                                for key in workflow_yaml.keys():
+                                    if key is True or key == 'on':
+                                        logger.info(f"Found key that might be 'on': {key} (type: {type(key)})")
+                        else:
+                            logger.warning(f"Workflow YAML is not a dict, it's {type(workflow_yaml)}")
                     
                     # Extract inputs from workflow_dispatch
                     # В YAML структура: on.workflow_dispatch.inputs
