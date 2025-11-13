@@ -54,7 +54,12 @@
                     {% for input_name, input_config in inputs_schema.items() %}
                         <div class="form-group">
                             <label for="input_{{ input_name }}">
-                                {{ input_config.get('description', input_name) }}
+                                {% set field_label = input_config.get('description', '') %}
+                                {% if field_label %}
+                                    {{ field_label }}
+                                {% else %}
+                                    {{ input_name|replace('_', ' ')|title }}
+                                {% endif %}
                                 {% if input_config.get('required', False) %}
                                     <span class="required">*</span>
                                 {% endif %}
@@ -100,11 +105,15 @@
                                 </select>
                             {% else %}
                                 {# Text input для string и других типов #}
+                                {% set field_placeholder = input_config.get('description', '') %}
+                                {% if not field_placeholder %}
+                                    {% set field_placeholder = input_name|replace('_', ' ')|title %}
+                                {% endif %}
                                 <input type="text" 
                                        id="input_{{ input_name }}" 
                                        name="{{ input_name }}" 
                                        value="{{ input_config.get('default', '') }}"
-                                       placeholder="{{ input_config.get('description', '') }}"
+                                       placeholder="{{ field_placeholder }}"
                                        {% if input_config.get('required', False) %}required{% endif %}
                                        class="form-input">
                             {% endif %}
