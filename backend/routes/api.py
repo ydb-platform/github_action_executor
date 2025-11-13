@@ -1,6 +1,8 @@
 """
 API routes for programmatic access
 """
+import logging
+import httpx
 from fastapi import APIRouter, Request, HTTPException, Depends, Query
 from pydantic import BaseModel
 from typing import Optional, List
@@ -9,6 +11,8 @@ from backend.services.permissions import is_contributor, check_repository_access
 from backend.services.workflow import trigger_workflow
 from backend.services.branches import get_branches
 from backend.services.workflows import get_workflows
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -96,7 +100,19 @@ async def api_get_branches(
     try:
         branches = await get_branches(owner, repo)
         return {"branches": branches}
+    except httpx.HTTPStatusError as e:
+        # Извлекаем сообщение об ошибке из ответа GitHub
+        status_code = e.response.status_code
+        try:
+            error_data = e.response.json()
+            error_message = error_data.get("message", str(e))
+        except:
+            error_message = str(e)
+        
+        logger.error(f"GitHub API error getting branches for {owner}/{repo}: {status_code} - {error_message}")
+        raise HTTPException(status_code=status_code, detail=error_message)
     except Exception as e:
+        logger.error(f"Unexpected error getting branches for {owner}/{repo}: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Failed to get branches: {str(e)}")
 
 
@@ -110,7 +126,19 @@ async def api_get_workflows(
     try:
         workflows = await get_workflows(owner, repo)
         return {"workflows": workflows}
+    except httpx.HTTPStatusError as e:
+        # Извлекаем сообщение об ошибке из ответа GitHub
+        status_code = e.response.status_code
+        try:
+            error_data = e.response.json()
+            error_message = error_data.get("message", str(e))
+        except:
+            error_message = str(e)
+        
+        logger.error(f"GitHub API error getting workflows for {owner}/{repo}: {status_code} - {error_message}")
+        raise HTTPException(status_code=status_code, detail=error_message)
     except Exception as e:
+        logger.error(f"Unexpected error getting workflows for {owner}/{repo}: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Failed to get workflows: {str(e)}")
 
 
@@ -129,6 +157,18 @@ async def api_get_workflow_info(
             "found": workflow_info.get("found", False),
             "inputs": workflow_info.get("inputs", {})
         }
+    except httpx.HTTPStatusError as e:
+        # Извлекаем сообщение об ошибке из ответа GitHub
+        status_code = e.response.status_code
+        try:
+            error_data = e.response.json()
+            error_message = error_data.get("message", str(e))
+        except:
+            error_message = str(e)
+        
+        logger.error(f"GitHub API error getting workflow info for {owner}/{repo}/{workflow_id}: {status_code} - {error_message}")
+        raise HTTPException(status_code=status_code, detail=error_message)
     except Exception as e:
+        logger.error(f"Unexpected error getting workflow info for {owner}/{repo}/{workflow_id}: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Failed to get workflow info: {str(e)}")
 
