@@ -4,7 +4,7 @@ Web interface for triggering GitHub Actions workflows with contributor verificat
 """
 import os
 import logging
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, Query
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -62,12 +62,20 @@ app.include_router(api.router, prefix="/api", tags=["api"])
 
 
 @app.get("/", response_class=HTMLResponse)
-async def root(request: Request):
+async def root(
+    request: Request,
+    owner: str = Query(None),
+    repo: str = Query(None),
+    workflow_id: str = Query(None),
+    ref: str = Query(None)
+):
     """Main page with form"""
     user = request.session.get("user")
-    default_owner = os.getenv("DEFAULT_REPO_OWNER", "")
-    default_repo = os.getenv("DEFAULT_REPO_NAME", "")
-    default_workflow_id = os.getenv("DEFAULT_WORKFLOW_ID", "")
+    # Используем query параметры или переменные окружения
+    default_owner = owner or os.getenv("DEFAULT_REPO_OWNER", "")
+    default_repo = repo or os.getenv("DEFAULT_REPO_NAME", "")
+    default_workflow_id = workflow_id or os.getenv("DEFAULT_WORKFLOW_ID", "")
+    default_ref = ref or "main"
     
     # Try to load branches and workflows if owner and repo are provided
     branches = []

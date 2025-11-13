@@ -9,109 +9,11 @@ from fastapi.templating import Jinja2Templates
 
 from backend.services.permissions import is_contributor, check_repository_access
 from backend.services.workflow import trigger_workflow
-from backend.services.workflow_info import get_workflow_info
-from backend.services.branches import get_branches
-from backend.services.workflows import get_workflows
 from backend.services.github_oauth import get_oauth_url
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
 templates = Jinja2Templates(directory="frontend/templates")
-
-
-@router.get("/form", response_class=HTMLResponse)
-async def workflow_form(
-    request: Request,
-    owner: str = None,
-    repo: str = None,
-    workflow_id: str = None,
-    ref: str = None
-):
-    """Display workflow trigger form with dynamic inputs"""
-    # Check authentication
-    user = request.session.get("user")
-    access_token = request.session.get("access_token")
-    
-    if not user or not access_token:
-        # Redirect to login
-        oauth_url = get_oauth_url()
-        return RedirectResponse(url=oauth_url)
-    
-    # Use defaults if not provided
-    owner = owner or os.getenv("DEFAULT_REPO_OWNER")
-    repo = repo or os.getenv("DEFAULT_REPO_NAME")
-    workflow_id = workflow_id or os.getenv("DEFAULT_WORKFLOW_ID")
-    ref = ref or "main"
-    
-    # Get workflow information including inputs
-    workflow_info = None
-    inputs_schema = {}
-    try:
-        if owner and repo and workflow_id:
-            logger.info(f"Getting workflow info for {owner}/{repo}/{workflow_id}")
-            workflow_info = await get_workflow_info(owner, repo, workflow_id)
-            logger.info(f"Workflow info found: {workflow_info.get('found')}, inputs count: {len(workflow_info.get('inputs', {}))}")
-            
-            if workflow_info.get("found"):
-                inputs_schema = workflow_info.get("inputs", {})
-                logger.info(f"Inputs schema keys: {list(inputs_schema.keys())}")
-                for key, value in inputs_schema.items():
-                    logger.debug(f"Input '{key}': {value}")
-            else:
-                logger.warning(f"Workflow {workflow_id} not found in {owner}/{repo}")
-    except Exception as e:
-        logger.error(f"Failed to get workflow info: {str(e)}", exc_info=True)
-        # Continue without workflow info - form will work with default fields
-    
-    # Get branches and workflows lists
-    branches = []
-    workflows_list = []
-    try:
-        if owner and repo:
-            logger.info(f"Fetching branches and workflows for {owner}/{repo}")
-            # Получаем ветки и workflows параллельно
-            import asyncio
-            branches_task = get_branches(owner, repo)
-            workflows_task = get_workflows(owner, repo)
-            branches, workflows_list = await asyncio.gather(
-                branches_task,
-                workflows_task,
-                return_exceptions=True
-            )
-            
-            # Обработка исключений
-            if isinstance(branches, Exception):
-                logger.warning(f"Failed to get branches: {str(branches)}", exc_info=True)
-                branches = []
-            else:
-                logger.info(f"Successfully loaded {len(branches)} branches")
-                
-            if isinstance(workflows_list, Exception):
-                logger.warning(f"Failed to get workflows: {str(workflows_list)}", exc_info=True)
-                workflows_list = []
-            else:
-                logger.info(f"Successfully loaded {len(workflows_list)} workflows")
-        else:
-            logger.warning(f"Cannot fetch branches/workflows: owner={owner}, repo={repo}")
-    except Exception as e:
-        logger.error(f"Failed to get branches/workflows: {str(e)}", exc_info=True)
-        # Continue without branches/workflows - user can type manually
-    
-    return templates.TemplateResponse(
-        "form.html",
-        {
-            "request": request,
-            "user": user,
-            "owner": owner,
-            "repo": repo,
-            "workflow_id": workflow_id,
-            "ref": ref,
-            "workflow_info": workflow_info,
-            "inputs_schema": inputs_schema,
-            "branches": branches,
-            "workflows": workflows_list
-        }
-    )
 
 
 async def _trigger_and_show_result(
@@ -268,7 +170,7 @@ async def trigger_workflow_get(
     accept_header = request.headers.get("Accept", "")
     return_json = not ui and "application/json" in accept_header
     
-    # Если нужна форма - редирект
+    # Если нужна форма - редирект на главную страницу
     if ui:
         params = []
         if owner:
@@ -280,7 +182,7 @@ async def trigger_workflow_get(
         if ref and ref != "main":
             params.append(f"ref={ref}")
         query_string = "&".join(params)
-        return RedirectResponse(url=f"/workflow/form?{query_string}")
+        return RedirectResponse(url=f"/?{query_string}")
     
     # Use defaults if not provided
     owner = owner or os.getenv("DEFAULT_REPO_OWNER")
