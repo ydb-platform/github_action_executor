@@ -68,6 +68,7 @@ async def workflow_form(
     workflows_list = []
     try:
         if owner and repo:
+            logger.info(f"Fetching branches and workflows for {owner}/{repo}")
             # Получаем ветки и workflows параллельно
             import asyncio
             branches_task = get_branches(owner, repo)
@@ -80,13 +81,20 @@ async def workflow_form(
             
             # Обработка исключений
             if isinstance(branches, Exception):
-                logger.warning(f"Failed to get branches: {str(branches)}")
+                logger.warning(f"Failed to get branches: {str(branches)}", exc_info=True)
                 branches = []
+            else:
+                logger.info(f"Successfully loaded {len(branches)} branches")
+                
             if isinstance(workflows_list, Exception):
-                logger.warning(f"Failed to get workflows: {str(workflows_list)}")
+                logger.warning(f"Failed to get workflows: {str(workflows_list)}", exc_info=True)
                 workflows_list = []
+            else:
+                logger.info(f"Successfully loaded {len(workflows_list)} workflows")
+        else:
+            logger.warning(f"Cannot fetch branches/workflows: owner={owner}, repo={repo}")
     except Exception as e:
-        logger.warning(f"Failed to get branches/workflows: {str(e)}")
+        logger.error(f"Failed to get branches/workflows: {str(e)}", exc_info=True)
         # Continue without branches/workflows - user can type manually
     
     return templates.TemplateResponse(

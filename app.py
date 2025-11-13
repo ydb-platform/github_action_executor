@@ -69,6 +69,32 @@ async def root(request: Request):
     default_repo = os.getenv("DEFAULT_REPO_NAME", "")
     default_workflow_id = os.getenv("DEFAULT_WORKFLOW_ID", "")
     
+    # Try to load branches and workflows if owner and repo are provided
+    branches = []
+    workflows_list = []
+    if default_owner and default_repo:
+        try:
+            from backend.services.branches import get_branches
+            from backend.services.workflows import get_workflows
+            import asyncio
+            
+            branches_task = get_branches(default_owner, default_repo)
+            workflows_task = get_workflows(default_owner, default_repo)
+            branches, workflows_list = await asyncio.gather(
+                branches_task,
+                workflows_task,
+                return_exceptions=True
+            )
+            
+            if isinstance(branches, Exception):
+                logger.warning(f"Failed to get branches for main page: {str(branches)}")
+                branches = []
+            if isinstance(workflows_list, Exception):
+                logger.warning(f"Failed to get workflows for main page: {str(workflows_list)}")
+                workflows_list = []
+        except Exception as e:
+            logger.warning(f"Failed to load branches/workflows for main page: {str(e)}")
+    
     return templates.TemplateResponse(
         "index.html",
         {
@@ -76,7 +102,9 @@ async def root(request: Request):
             "user": user,
             "default_owner": default_owner,
             "default_repo": default_repo,
-            "default_workflow_id": default_workflow_id
+            "default_workflow_id": default_workflow_id,
+            "branches": branches,
+            "workflows": workflows_list
         }
     )
 

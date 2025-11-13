@@ -1,12 +1,14 @@
 """
 API routes for programmatic access
 """
-from fastapi import APIRouter, Request, HTTPException, Depends
+from fastapi import APIRouter, Request, HTTPException, Depends, Query
 from pydantic import BaseModel
 from typing import Optional, List
 
 from backend.services.permissions import is_contributor, check_repository_access
 from backend.services.workflow import trigger_workflow
+from backend.services.branches import get_branches
+from backend.services.workflows import get_workflows
 
 router = APIRouter()
 
@@ -82,4 +84,51 @@ async def api_trigger_workflow(
         )
     
     return result
+
+
+@router.get("/branches")
+async def api_get_branches(
+    owner: str = Query(...),
+    repo: str = Query(...),
+    request: Request = None
+):
+    """API endpoint to get branches for a repository"""
+    try:
+        branches = await get_branches(owner, repo)
+        return {"branches": branches}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get branches: {str(e)}")
+
+
+@router.get("/workflows")
+async def api_get_workflows(
+    owner: str = Query(...),
+    repo: str = Query(...),
+    request: Request = None
+):
+    """API endpoint to get workflows for a repository"""
+    try:
+        workflows = await get_workflows(owner, repo)
+        return {"workflows": workflows}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get workflows: {str(e)}")
+
+
+@router.get("/workflow-info")
+async def api_get_workflow_info(
+    owner: str = Query(...),
+    repo: str = Query(...),
+    workflow_id: str = Query(...),
+    request: Request = None
+):
+    """API endpoint to get workflow info including inputs"""
+    try:
+        from backend.services.workflow_info import get_workflow_info
+        workflow_info = await get_workflow_info(owner, repo, workflow_id)
+        return {
+            "found": workflow_info.get("found", False),
+            "inputs": workflow_info.get("inputs", {})
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get workflow info: {str(e)}")
 

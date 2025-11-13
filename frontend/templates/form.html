@@ -82,6 +82,20 @@
                     {% endif %}
                 </div>
 
+                {# Debug info - можно удалить позже #}
+                {% if false %}
+                <div class="form-group" style="background: #f5f5f5; padding: 10px; border-radius: 6px; font-size: 0.9em; color: #666;">
+                    <strong>Debug info:</strong><br>
+                    Branches loaded: {{ branches|length if branches else 0 }}<br>
+                    Workflows loaded: {{ workflows|length if workflows else 0 }}<br>
+                    {% if branches %}
+                        Branches: {{ branches|join(', ') }}
+                    {% endif %}
+                    {% if workflows %}
+                        Workflows: {{ workflows|map(attribute='id')|join(', ') }}
+                    {% endif %}
+                </div>
+                {% endif %}
 
                 {% if inputs_schema %}
                     {% if inputs_schema|length > 0 %}
@@ -293,26 +307,44 @@
         
         // Инициализация при загрузке
         function initAll() {
-            console.log('Initializing searchable selects...');
+            console.log('=== Initializing searchable selects ===');
             const workflowSearch = document.getElementById('workflow_search');
             const branchSearch = document.getElementById('branch_search');
+            const workflowSelect = document.getElementById('workflow_id');
+            const branchSelect = document.getElementById('ref');
             
-            if (workflowSearch) {
-                console.log('Found workflow_search, initializing...');
+            console.log('Elements found:', {
+                workflowSearch: !!workflowSearch,
+                branchSearch: !!branchSearch,
+                workflowSelect: !!workflowSelect,
+                branchSelect: !!branchSelect
+            });
+            
+            if (workflowSearch && workflowSelect) {
+                console.log('Initializing workflow searchable select...');
+                console.log('Workflow select options:', workflowSelect.options.length);
                 initSearchableSelect('workflow_search', 'workflow_id', 'workflow_dropdown');
+                console.log('Workflow searchable select initialized');
             } else {
-                console.warn('workflow_search not found!');
+                console.error('workflow_search or workflow_id not found!', {
+                    workflowSearch: !!workflowSearch,
+                    workflowSelect: !!workflowSelect
+                });
             }
             
-            if (branchSearch) {
-                console.log('Found branch_search, initializing...');
+            if (branchSearch && branchSelect) {
+                console.log('Initializing branch searchable select...');
+                console.log('Branch select options:', branchSelect.options.length);
                 initSearchableSelect('branch_search', 'ref', 'branch_dropdown');
+                console.log('Branch searchable select initialized');
             } else {
-                console.warn('branch_search not found!');
+                console.error('branch_search or ref not found!', {
+                    branchSearch: !!branchSearch,
+                    branchSelect: !!branchSelect
+                });
             }
             
             // Автоматическая перезагрузка формы при изменении workflow
-            const workflowSelect = document.getElementById('workflow_id');
             if (workflowSelect) {
                 workflowSelect.addEventListener('change', function() {
                     const form = document.getElementById('testForm');
@@ -325,6 +357,8 @@
                     window.location.href = `/workflow/form?owner=${owner}&repo=${repo}&workflow_id=${workflowId}&ref=${ref}`;
                 });
             }
+            
+            console.log('=== Initialization complete ===');
         }
         
         // Инициализация при загрузке DOM
