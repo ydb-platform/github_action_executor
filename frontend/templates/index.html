@@ -71,7 +71,7 @@
                             <div class="searchable-select-dropdown" id="workflow_dropdown"></div>
                         </div>
                         {% if not workflows or workflows|length == 0 %}
-                            <small style="color: #666; font-size: 0.45em;">Введите owner и repo, чтобы загрузить список workflows</small>
+                            <small style="color: #666; font-size: 0.7em;">Введите owner и repo, чтобы загрузить список workflows</small>
                         {% endif %}
                     </div>
                     
@@ -99,7 +99,7 @@
                             <div class="searchable-select-dropdown" id="branch_dropdown"></div>
                         </div>
                         {% if not branches or branches|length == 0 %}
-                            <small style="color: #666; font-size: 0.45em;">Введите owner и repo, чтобы загрузить список веток</small>
+                            <small style="color: #666; font-size: 0.7em;">Введите owner и repo, чтобы загрузить список веток</small>
                         {% endif %}
                     </div>
 
@@ -198,7 +198,7 @@
             }
             
             try {
-                inputsContainer.innerHTML = '<div style="padding: 5px; color: #666; font-size: 0.45em;">Загрузка параметров workflow...</div>';
+                inputsContainer.innerHTML = '<div style="padding: 5px; color: #666; font-size: 0.7em;">Загрузка параметров workflow...</div>';
                 
                 const response = await fetch(`/api/workflow-info?owner=${encodeURIComponent(owner)}&repo=${encodeURIComponent(repo)}&workflow_id=${encodeURIComponent(workflowId)}`);
                 
