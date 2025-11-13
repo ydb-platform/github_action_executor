@@ -46,11 +46,19 @@ async def workflow_form(
     inputs_schema = {}
     try:
         if owner and repo and workflow_id:
+            logger.info(f"Getting workflow info for {owner}/{repo}/{workflow_id}")
             workflow_info = await get_workflow_info(owner, repo, workflow_id)
+            logger.info(f"Workflow info found: {workflow_info.get('found')}, inputs count: {len(workflow_info.get('inputs', {}))}")
+            
             if workflow_info.get("found"):
                 inputs_schema = workflow_info.get("inputs", {})
+                logger.info(f"Inputs schema keys: {list(inputs_schema.keys())}")
+                for key, value in inputs_schema.items():
+                    logger.debug(f"Input '{key}': {value}")
+            else:
+                logger.warning(f"Workflow {workflow_id} not found in {owner}/{repo}")
     except Exception as e:
-        logger.warning(f"Failed to get workflow info: {str(e)}")
+        logger.error(f"Failed to get workflow info: {str(e)}", exc_info=True)
         # Continue without workflow info - form will work with default fields
     
     return templates.TemplateResponse(

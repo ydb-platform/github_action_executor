@@ -31,7 +31,25 @@
                     <input type="text" id="ref" name="ref" value="{{ ref or 'main' }}" required>
                 </div>
 
+                {# Отладочная информация #}
+                {% if workflow_info %}
+                    <div class="info-section" style="margin-bottom: 20px; font-size: 0.9em;">
+                        <p><strong>Workflow найден:</strong> {{ workflow_info.get('found', False) }}</p>
+                        <p><strong>Количество inputs:</strong> {{ inputs_schema|length }}</p>
+                        {% if inputs_schema %}
+                            <p><strong>Inputs keys:</strong> 
+                                {% for key in inputs_schema.keys() %}
+                                    {{ key }}{% if not loop.last %}, {% endif %}
+                                {% endfor %}
+                            </p>
+                        {% else %}
+                            <p><strong>Inputs schema пустой или None</strong></p>
+                        {% endif %}
+                    </div>
+                {% endif %}
+
                 {% if inputs_schema %}
+                    {% if inputs_schema|length > 0 %}
                     {# Динамические поля на основе workflow inputs #}
                     {% for input_name, input_config in inputs_schema.items() %}
                         <div class="form-group">
@@ -92,6 +110,12 @@
                             {% endif %}
                         </div>
                     {% endfor %}
+                    {% else %}
+                        {# inputs_schema существует, но пустой #}
+                        <div class="info-section">
+                            <p>Workflow найден, но в нем нет определенных inputs в workflow_dispatch.</p>
+                        </div>
+                    {% endif %}
                 {% else %}
                     {# Fallback: старые чекбоксы для тестов, если workflow info не получен #}
                     <div class="form-group">

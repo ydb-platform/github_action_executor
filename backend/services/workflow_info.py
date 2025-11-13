@@ -66,6 +66,7 @@ async def get_workflow_info(owner: str, repo: str, workflow_id: str) -> dict:
             
             inputs = {}
             if file_response.status_code == 200:
+                logger.info(f"Successfully retrieved workflow file content")
                 file_data = file_response.json()
                 
                 # Decode file content
@@ -74,44 +75,59 @@ async def get_workflow_info(owner: str, repo: str, workflow_id: str) -> dict:
                 # Parse YAML
                 try:
                     workflow_yaml = yaml.safe_load(content)
+                    logger.debug(f"Parsed workflow YAML keys: {list(workflow_yaml.keys()) if workflow_yaml else 'None'}")
                     
                     # Extract inputs from workflow_dispatch
                     if "on" in workflow_yaml and "workflow_dispatch" in workflow_yaml["on"]:
                         workflow_dispatch = workflow_yaml["on"]["workflow_dispatch"]
+                        logger.debug(f"Workflow dispatch keys: {list(workflow_dispatch.keys()) if workflow_dispatch else 'None'}")
+                        
                         if "inputs" in workflow_dispatch:
                             raw_inputs = workflow_dispatch["inputs"]
+                            logger.info(f"Found {len(raw_inputs)} inputs in workflow: {list(raw_inputs.keys())}")
+                            
                             # Нормализуем inputs - сохраняем все поля из YAML
                             inputs = {}
                             for input_name, input_config in raw_inputs.items():
+                                input_type = input_config.get("type", "string")
+                                logger.debug(f"Processing input '{input_name}': type={input_type}, config={input_config}")
+                                
                                 inputs[input_name] = {
-                                    "type": input_config.get("type", "string"),
+                                    "type": input_type,
                                     "description": input_config.get("description", ""),
                                     "required": input_config.get("required", False),
                                     "default": input_config.get("default")
                                 }
                                 
                                 # Для choice типа - сохраняем options
-                                if input_config.get("type") == "choice":
+                                if input_type == "choice":
                                     options = input_config.get("options", [])
                                     inputs[input_name]["options"] = options if isinstance(options, list) else []
+                                    logger.debug(f"Input '{input_name}' has {len(inputs[input_name]['options'])} options")
                                 
                                 # Для boolean - конвертируем default в bool
-                                if input_config.get("type") == "boolean":
+                                if input_type == "boolean":
                                     default_val = input_config.get("default", False)
                                     if isinstance(default_val, str):
                                         inputs[input_name]["default"] = default_val.lower() in ("true", "1", "yes")
                                     else:
                                         inputs[input_name]["default"] = bool(default_val)
+                        else:
+                            logger.info("No 'inputs' found in workflow_dispatch")
+                    else:
+                        logger.info("No 'workflow_dispatch' found in workflow 'on' section")
                 except Exception as e:
-                    logger.warning(f"Failed to parse workflow YAML: {str(e)}")
+                    logger.error(f"Failed to parse workflow YAML: {str(e)}", exc_info=True)
             
-            return {
+            result = {
                 "found": True,
                 "name": workflow_data.get("name", workflow_id),
                 "path": workflow_data.get("path"),
                 "state": workflow_data.get("state"),
                 "inputs": inputs
             }
+            logger.info(f"Returning workflow info: found={result['found']}, inputs_count={len(inputs)}")
+            return result
             
     except httpx.HTTPStatusError as e:
         logger.error(f"Failed to get workflow info: {e.response.status_code} - {e.response.text}")
