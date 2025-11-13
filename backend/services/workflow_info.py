@@ -73,79 +73,88 @@ async def get_workflow_info(owner: str, repo: str, workflow_id: str) -> dict:
                 content = base64.b64decode(file_data["content"]).decode("utf-8")
                 
                 # Parse YAML
+                # GitHub API не предоставляет inputs напрямую, поэтому парсим YAML вручную
+                # Это стандартный подход, так как inputs определены только в YAML файле
                 try:
                     workflow_yaml = yaml.safe_load(content)
-                    logger.debug(f"Parsed workflow YAML keys: {list(workflow_yaml.keys()) if workflow_yaml else 'None'}")
+                    if not workflow_yaml:
+                        logger.warning("Workflow YAML is empty or None")
+                    else:
+                        logger.debug(f"Parsed workflow YAML, top-level keys: {list(workflow_yaml.keys())}")
                     
                     # Extract inputs from workflow_dispatch
-                    # workflow_dispatch может быть как ключ в словаре "on", так и элемент списка
+                    # В YAML структура: on.workflow_dispatch.inputs
                     if "on" in workflow_yaml:
                         on_section = workflow_yaml["on"]
                         logger.debug(f"Workflow 'on' section type: {type(on_section)}")
                         
                         workflow_dispatch = None
                         
-                        # Если on - это словарь, проверяем ключ workflow_dispatch
+                        # Если on - это словарь (наиболее частый случай)
                         if isinstance(on_section, dict):
                             if "workflow_dispatch" in on_section:
                                 workflow_dispatch = on_section["workflow_dispatch"]
-                                logger.debug("Found workflow_dispatch as dict key")
+                                logger.info("Found workflow_dispatch as dict key in 'on' section")
                         
-                        # Если on - это список, ищем workflow_dispatch в элементах
+                        # Если on - это список (редкий случай, но возможен)
                         elif isinstance(on_section, list):
                             for item in on_section:
                                 if isinstance(item, dict) and "workflow_dispatch" in item:
                                     workflow_dispatch = item["workflow_dispatch"]
-                                    logger.debug("Found workflow_dispatch in list")
+                                    logger.info("Found workflow_dispatch in list within 'on' section")
                                     break
                         
                         if workflow_dispatch:
-                            logger.info(f"Workflow dispatch found, type: {type(workflow_dispatch)}")
                             if isinstance(workflow_dispatch, dict):
                                 logger.info(f"Workflow dispatch keys: {list(workflow_dispatch.keys())}")
-                            else:
-                                logger.warning(f"Workflow dispatch is not a dict: {workflow_dispatch}")
-                            
-                            if isinstance(workflow_dispatch, dict) and "inputs" in workflow_dispatch:
-                                raw_inputs = workflow_dispatch["inputs"]
-                                logger.info(f"Found {len(raw_inputs)} inputs in workflow: {list(raw_inputs.keys())}")
                                 
-                                # Нормализуем inputs - сохраняем все поля из YAML
-                                inputs = {}
-                                for input_name, input_config in raw_inputs.items():
-                                    if not isinstance(input_config, dict):
-                                        logger.warning(f"Input '{input_name}' config is not a dict: {type(input_config)}")
-                                        continue
-                                    
-                                    input_type = input_config.get("type", "string")
-                                    logger.debug(f"Processing input '{input_name}': type={input_type}, config={input_config}")
-                                    
-                                    inputs[input_name] = {
-                                        "type": input_type,
-                                        "description": input_config.get("description", ""),
-                                        "required": input_config.get("required", False),
-                                        "default": input_config.get("default")
-                                    }
-                                    
-                                    # Для choice типа - сохраняем options
-                                    if input_type == "choice":
-                                        options = input_config.get("options", [])
-                                        inputs[input_name]["options"] = options if isinstance(options, list) else []
-                                        logger.debug(f"Input '{input_name}' has {len(inputs[input_name]['options'])} options")
-                                    
-                                    # Для boolean - конвертируем default в bool
-                                    if input_type == "boolean":
-                                        default_val = input_config.get("default", False)
-                                        if isinstance(default_val, str):
-                                            inputs[input_name]["default"] = default_val.lower() in ("true", "1", "yes")
-                                        else:
-                                            inputs[input_name]["default"] = bool(default_val)
+                                if "inputs" in workflow_dispatch:
+                                    raw_inputs = workflow_dispatch["inputs"]
+                                    if not isinstance(raw_inputs, dict):
+                                        logger.warning(f"Inputs is not a dict: {type(raw_inputs)}")
+                                    else:
+                                        logger.info(f"Found {len(raw_inputs)} inputs in workflow: {list(raw_inputs.keys())}")
+                                        
+                                        # Нормализуем inputs - сохраняем все поля из YAML
+                                        inputs = {}
+                                        for input_name, input_config in raw_inputs.items():
+                                            if not isinstance(input_config, dict):
+                                                logger.warning(f"Input '{input_name}' config is not a dict: {type(input_config)}, skipping")
+                                                continue
+                                            
+                                            input_type = input_config.get("type", "string")
+                                            logger.debug(f"Processing input '{input_name}': type={input_type}")
+                                            
+                                            inputs[input_name] = {
+                                                "type": input_type,
+                                                "description": input_config.get("description", ""),
+                                                "required": input_config.get("required", False),
+                                                "default": input_config.get("default")
+                                            }
+                                            
+                                            # Для choice типа - сохраняем options
+                                            if input_type == "choice":
+                                                options = input_config.get("options", [])
+                                                inputs[input_name]["options"] = options if isinstance(options, list) else []
+                                                logger.debug(f"Input '{input_name}' (choice) has {len(inputs[input_name]['options'])} options")
+                                            
+                                            # Для boolean - конвертируем default в bool
+                                            elif input_type == "boolean":
+                                                default_val = input_config.get("default", False)
+                                                if isinstance(default_val, str):
+                                                    inputs[input_name]["default"] = default_val.lower() in ("true", "1", "yes")
+                                                else:
+                                                    inputs[input_name]["default"] = bool(default_val)
+                                else:
+                                    logger.info("No 'inputs' key found in workflow_dispatch")
                             else:
-                                logger.info("No 'inputs' found in workflow_dispatch or workflow_dispatch is not a dict")
+                                logger.warning(f"Workflow dispatch is not a dict: {type(workflow_dispatch)}")
                         else:
                             logger.info("No 'workflow_dispatch' found in workflow 'on' section")
                     else:
                         logger.info("No 'on' section found in workflow YAML")
+                except yaml.YAMLError as e:
+                    logger.error(f"YAML parsing error: {str(e)}", exc_info=True)
                 except Exception as e:
                     logger.error(f"Failed to parse workflow YAML: {str(e)}", exc_info=True)
             
