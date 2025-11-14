@@ -5,13 +5,18 @@ import os
 import logging
 import httpx
 from backend.services.github_app import get_installation_token, load_private_key
+from backend.services.cache import get as cache_get, set as cache_set
 
 logger = logging.getLogger(__name__)
+
+# Cache TTL in seconds (5 minutes)
+CACHE_TTL = 300
 
 
 async def get_workflows(owner: str, repo: str) -> list:
     """
     Get list of workflows from repository
+    Uses caching for improved performance.
     
     Args:
         owner: Repository owner
@@ -21,6 +26,17 @@ async def get_workflows(owner: str, repo: str) -> list:
         List of workflows with id and name
         Format: [{"id": "workflow_id", "name": "Workflow Name", "path": ".github/workflows/ci.yml"}, ...]
     """
+    # Cache key
+    cache_key = f"workflows:{owner}:{repo}"
+    
+    # Try to get from cache
+    workflows_list = cache_get(cache_key)
+    
+    if workflows_list is not None:
+        logger.debug(f"Using cached workflows for {owner}/{repo} ({len(workflows_list)} workflows)")
+        return workflows_list
+    
+    # Not in cache, fetch from API
     # Get GitHub App credentials
     app_id = os.getenv("GITHUB_APP_ID")
     installation_id = os.getenv("GITHUB_APP_INSTALLATION_ID")
@@ -66,7 +82,10 @@ async def get_workflows(owner: str, repo: str) -> list:
             
             # Sort by name
             workflows_list.sort(key=lambda x: x["name"].lower())
-            logger.info(f"Retrieved {len(workflows_list)} workflows for {owner}/{repo}")
+            
+            # Cache the result
+            cache_set(cache_key, workflows_list, CACHE_TTL)
+            logger.info(f"Fetched {len(workflows_list)} workflows from API for {owner}/{repo}")
             return workflows_list
             
     except httpx.HTTPStatusError as e:

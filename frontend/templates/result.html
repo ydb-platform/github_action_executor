@@ -9,6 +9,37 @@
     <title>Workflow Result - Run GitHub Action</title>
     <link rel="icon" type="image/jpeg" href="/static/fav.jpeg">
     <link rel="stylesheet" href="/static/style.css">
+    <style>
+        .run-loader {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+            margin: 24px 0;
+        }
+        
+        .loader {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #000;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin-bottom: 12px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .loading-message {
+            text-align: center;
+            color: #666;
+            font-size: 14px;
+        }
+    </style>
 </head>
 <body>
     <div class="container">
@@ -47,9 +78,18 @@
                     {% endif %}
                 </div>
 
-                <div class="action-links">
+                <div id="run-loader" class="run-loader" style="display: {% if run_url %}none{% else %}flex{% endif %};">
+                    <div class="loader"></div>
+                    <p class="loading-message">Ищем запуск workflow...</p>
+                    <label style="margin-top: 12px; font-size: 12px; color: #666; cursor: pointer; display: flex; align-items: center; gap: 6px;">
+                        <input type="checkbox" id="auto-open-checkbox" checked style="cursor: pointer;">
+                        <span>Автоматически открывать ссылку на запуск</span>
+                    </label>
+                </div>
+
+                <div class="action-links" id="action-links" style="display: {% if run_url %}flex{% else %}none{% endif %};">
                     {% if run_url %}
-                    <a href="{{ run_url }}" target="_blank" class="btn btn-primary">
+                    <a href="{{ run_url }}" target="_blank" class="btn btn-primary" id="run-link">
                         View in GitHub Actions
                     </a>
                     {% elif workflow_url %}
@@ -93,6 +133,172 @@
             {% endif %}
         </main>
     </div>
+
+    {% if success %}
+    <script>
+        // Обработка автоматического открытия для случая когда run_url уже есть
+        {% if run_url %}
+        (function() {
+            const AUTO_OPEN_KEY = 'github-action-executor-auto-open';
+            let autoOpen = true;
+            try {
+                const saved = localStorage.getItem(AUTO_OPEN_KEY);
+                if (saved !== null) {
+                    autoOpen = saved === 'true';
+                }
+            } catch (e) {
+                // Если localStorage недоступен, используем значение по умолчанию
+            }
+            
+            if (autoOpen) {
+                const runUrl = '{{ run_url }}';
+                // Небольшая задержка для лучшего UX
+                setTimeout(() => {
+                    window.open(runUrl, '_blank');
+                }, 300);
+            }
+        })();
+        {% endif %}
+    </script>
+    {% endif %}
+    
+    {% if success and not run_url and trigger_time %}
+    <script>
+        (function() {
+            const owner = '{{ owner }}';
+            const repo = '{{ repo }}';
+            const workflowId = '{{ workflow_id }}';
+            const triggerTime = '{{ trigger_time }}';
+            const ref = '{{ ref }}';
+            const workflowUrl = '{{ workflow_url }}';
+            
+            // Флаг для автоматического открытия ссылки (по умолчанию true)
+            const AUTO_OPEN_KEY = 'github-action-executor-auto-open';
+            let autoOpen = true;
+            try {
+                const saved = localStorage.getItem(AUTO_OPEN_KEY);
+                if (saved !== null) {
+                    autoOpen = saved === 'true';
+                }
+            } catch (e) {
+                // Если localStorage недоступен, используем значение по умолчанию
+            }
+            
+            // Устанавливаем чекбокс в соответствии с сохраненным значением
+            const autoOpenCheckbox = document.getElementById('auto-open-checkbox');
+            if (autoOpenCheckbox) {
+                autoOpenCheckbox.checked = autoOpen;
+                autoOpenCheckbox.addEventListener('change', function() {
+                    autoOpen = this.checked;
+                    try {
+                        localStorage.setItem(AUTO_OPEN_KEY, autoOpen.toString());
+                    } catch (e) {
+                        // Если localStorage недоступен, просто игнорируем
+                    }
+                });
+            }
+            
+            let attempts = 0;
+            const maxAttempts = 30; // 30 попыток = ~30 секунд
+            const pollInterval = 1000; // 1 секунда
+            let runUrlFound = false; // Флаг чтобы открыть только один раз
+            
+            function findRun() {
+                attempts++;
+                
+                const params = new URLSearchParams({
+                    owner: owner,
+                    repo: repo,
+                    workflow_id: workflowId,
+                    trigger_time: triggerTime
+                });
+                if (ref) {
+                    params.append('ref', ref);
+                }
+                
+                fetch(`/api/find-run?${params.toString()}`)
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error(`HTTP error! status: ${response.status}`);
+                        }
+                        return response.json();
+                    })
+                    .then(data => {
+                        if (data.found && data.run_url) {
+                            // Нашли run!
+                            const loader = document.getElementById('run-loader');
+                            const actionLinks = document.getElementById('action-links');
+                            
+                            if (loader) loader.style.display = 'none';
+                            if (actionLinks) {
+                                actionLinks.style.display = 'flex';
+                                
+                                // Создаем или обновляем ссылку
+                                let runLink = document.getElementById('run-link');
+                                if (!runLink) {
+                                    runLink = document.createElement('a');
+                                    runLink.id = 'run-link';
+                                    runLink.href = data.run_url;
+                                    runLink.target = '_blank';
+                                    runLink.className = 'btn btn-primary';
+                                    runLink.textContent = 'View in GitHub Actions';
+                                    actionLinks.insertBefore(runLink, actionLinks.firstChild);
+                                } else {
+                                    runLink.href = data.run_url;
+                                }
+                            }
+                            
+                            // Автоматически открываем ссылку если флаг включен и еще не открывали
+                            if (autoOpen && !runUrlFound) {
+                                runUrlFound = true;
+                                // Небольшая задержка для лучшего UX
+                                setTimeout(() => {
+                                    window.open(data.run_url, '_blank');
+                                }, 300);
+                            }
+                        } else if (attempts < maxAttempts) {
+                            // Продолжаем опрос
+                            setTimeout(findRun, pollInterval);
+                        } else {
+                            // Превысили лимит попыток
+                            const loader = document.getElementById('run-loader');
+                            if (loader) {
+                                loader.innerHTML = '<p class="loading-message">Не удалось найти запуск. <a href="' + workflowUrl + '" target="_blank" style="color: #000; text-decoration: underline;">Открыть список workflow</a></p>';
+                            }
+                            
+                            // Показываем кнопки даже если не нашли run
+                            const actionLinks = document.getElementById('action-links');
+                            if (actionLinks) {
+                                actionLinks.style.display = 'flex';
+                                if (!document.getElementById('run-link') && workflowUrl) {
+                                    const workflowLink = document.createElement('a');
+                                    workflowLink.href = workflowUrl;
+                                    workflowLink.target = '_blank';
+                                    workflowLink.className = 'btn btn-primary';
+                                    workflowLink.textContent = 'View Workflow';
+                                    actionLinks.insertBefore(workflowLink, actionLinks.firstChild);
+                                }
+                            }
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error finding run:', error);
+                        if (attempts < maxAttempts) {
+                            setTimeout(findRun, pollInterval);
+                        } else {
+                            const loader = document.getElementById('run-loader');
+                            if (loader) {
+                                loader.innerHTML = '<p class="loading-message" style="color: #999;">Ошибка при поиске запуска. <a href="' + workflowUrl + '" target="_blank" style="color: #000; text-decoration: underline;">Открыть список workflow</a></p>';
+                            }
+                        }
+                    });
+            }
+            
+            // Начинаем поиск через небольшую задержку
+            setTimeout(findRun, 500);
+        })();
+    </script>
+    {% endif %}
 </body>
 </html>
 

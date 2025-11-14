@@ -116,6 +116,7 @@ async def _trigger_and_show_result(
                 "run_id": result.get("run_id"),
                 "run_url": result.get("run_url"),
                 "workflow_url": result.get("workflow_url"),
+                "trigger_time": result.get("trigger_time"),
                 "error": result.get("message") if not result["success"] else None
             }
         )

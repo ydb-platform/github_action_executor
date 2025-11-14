@@ -54,6 +54,22 @@
                 
                 <div class="form-group">
                     <div class="field-header">
+                        <label for="env">Env</label>
+                        <span class="optional">Optional</span>
+                    </div>
+                    <input type="text" 
+                           id="env" 
+                           name="env" 
+                           class="form-input" 
+                           placeholder=".* (all branches by default)"
+                           value="">
+                    <small style="color: #9ca3af; font-size: 12px; margin-top: 4px; display: block;">
+                        Comma-separated regex patterns to filter branches (e.g., "production,staging,.*-prod$")
+                    </small>
+                </div>
+                
+                <div class="form-group">
+                    <div class="field-header">
                         <label for="branch">Branch</label>
                     </div>
                     <div class="field-with-loader">
@@ -301,13 +317,23 @@
             const branchLoader = document.getElementById('branch-loader');
             const workflowLoader = document.getElementById('workflow-loader');
             
+            // Получаем значение env для фильтрации
+            const envInput = document.getElementById('env');
+            const envValue = envInput ? envInput.value.trim() : '';
+            
             // Показываем спиннеры
             if (branchLoader) branchLoader.style.display = 'flex';
             if (workflowLoader) workflowLoader.style.display = 'flex';
             
             try {
+                // Формируем URL для branches с env параметром
+                let branchesUrl = `/api/branches?owner=${encodeURIComponent(owner)}&repo=${encodeURIComponent(repo)}`;
+                if (envValue) {
+                    branchesUrl += `&env=${encodeURIComponent(envValue)}`;
+                }
+                
                 const [branchesResponse, workflowsResponse] = await Promise.all([
-                    fetch(`/api/branches?owner=${encodeURIComponent(owner)}&repo=${encodeURIComponent(repo)}`),
+                    fetch(branchesUrl),
                     fetch(`/api/workflows?owner=${encodeURIComponent(owner)}&repo=${encodeURIComponent(repo)}`)
                 ]);
                 
@@ -412,6 +438,32 @@
             }
         }
         
+        // Обработка поля Env для фильтрации веток
+        function setupEnvField() {
+            const envInput = document.getElementById('env');
+            if (!envInput) return;
+            
+            let loadTimeout;
+            
+            envInput.addEventListener('input', function() {
+                const repositoryInput = document.getElementById('repository');
+                const ownerInput = document.getElementById('owner');
+                const repoInput = document.getElementById('repo');
+                
+                if (!repositoryInput || !ownerInput || !repoInput) return;
+                
+                const owner = ownerInput.value.trim();
+                const repo = repoInput.value.trim();
+                
+                if (owner && repo) {
+                    clearTimeout(loadTimeout);
+                    loadTimeout = setTimeout(function() {
+                        loadBranchesAndWorkflows(owner, repo);
+                    }, 500);
+                }
+            });
+        }
+        
         // Валидация формы перед отправкой
         function setupFormValidation() {
             const form = document.getElementById('workflowForm');
@@ -450,6 +502,7 @@
             initSearchableSelect('workflow_search', 'workflow_id', 'workflow_dropdown');
             initSearchableSelect('branch_search', 'ref', 'branch_dropdown');
             setupRepositoryField();
+            setupEnvField();
             setupFormValidation();
         }
         

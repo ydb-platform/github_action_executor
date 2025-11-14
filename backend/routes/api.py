@@ -8,7 +8,7 @@ from pydantic import BaseModel
 from typing import Optional, List
 
 from backend.services.permissions import is_contributor, check_repository_access
-from backend.services.workflow import trigger_workflow
+from backend.services.workflow import trigger_workflow, find_workflow_run
 from backend.services.branches import get_branches
 from backend.services.workflows import get_workflows
 
@@ -94,11 +94,27 @@ async def api_trigger_workflow(
 async def api_get_branches(
     owner: str = Query(...),
     repo: str = Query(...),
+    env: Optional[str] = Query(None),
     request: Request = None
 ):
-    """API endpoint to get branches for a repository"""
+    """
+    API endpoint to get branches for a repository
+    
+    Args:
+        owner: Repository owner
+        repo: Repository name
+        env: Optional comma-separated list of regex patterns to filter branches by name
+             Example: "production,staging,.*-prod$"
+    """
     try:
-        branches = await get_branches(owner, repo)
+        env_patterns = None
+        if env:
+            # Split comma-separated patterns
+            env_patterns = [p.strip() for p in env.split(",") if p.strip()]
+            if len(env_patterns) == 0:
+                env_patterns = None
+        
+        branches = await get_branches(owner, repo, env_patterns=env_patterns)
         return {"branches": branches}
     except httpx.HTTPStatusError as e:
         # Извлекаем сообщение об ошибке из ответа GitHub
@@ -171,4 +187,55 @@ async def api_get_workflow_info(
     except Exception as e:
         logger.error(f"Unexpected error getting workflow info for {owner}/{repo}/{workflow_id}: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Failed to get workflow info: {str(e)}")
+
+
+@router.get("/find-run")
+async def api_find_run(
+    owner: str = Query(...),
+    repo: str = Query(...),
+    workflow_id: str = Query(...),
+    trigger_time: str = Query(...),  # ISO format timestamp
+    ref: Optional[str] = Query(None),
+    request: Request = None
+):
+    """
+    API endpoint to find workflow run by trigger time and actor
+    
+    Args:
+        owner: Repository owner
+        repo: Repository name
+        workflow_id: Workflow ID
+        trigger_time: ISO format timestamp when workflow was triggered
+        ref: Optional branch name
+    """
+    try:
+        from datetime import datetime
+        
+        # Parse trigger_time from ISO format
+        trigger_dt = datetime.fromisoformat(trigger_time.replace('Z', '+00:00'))
+        run_data = await find_workflow_run(owner, repo, workflow_id, trigger_dt, ref=ref)
+        
+        if run_data:
+            return {
+                "found": True,
+                "run_id": run_data.get("id"),
+                "run_url": run_data.get("html_url"),
+                "status": run_data.get("status"),
+                "conclusion": run_data.get("conclusion")
+            }
+        else:
+            return {"found": False}
+    except httpx.HTTPStatusError as e:
+        status_code = e.response.status_code
+        try:
+            error_data = e.response.json()
+            error_message = error_data.get("message", str(e))
+        except:
+            error_message = str(e)
+        
+        logger.error(f"GitHub API error finding run for {owner}/{repo}/{workflow_id}: {status_code} - {error_message}")
+        raise HTTPException(status_code=status_code, detail=error_message)
+    except Exception as e:
+        logger.error(f"Unexpected error finding run for {owner}/{repo}/{workflow_id}: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to find run: {str(e)}")
 
