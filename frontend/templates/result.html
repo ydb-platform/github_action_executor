@@ -154,10 +154,23 @@
             
             if (autoOpen) {
                 const runUrl = '{{ run_url }}';
-                // Небольшая задержка для лучшего UX
-                setTimeout(() => {
-                    window.open(runUrl, '_blank');
-                }, 300);
+                console.log('Auto-opening run URL (immediate):', runUrl, 'autoOpen:', autoOpen);
+                // Открываем сразу, без задержки, чтобы избежать блокировки popup
+                try {
+                    const newWindow = window.open(runUrl, '_blank', 'noopener,noreferrer');
+                    if (!newWindow || newWindow.closed || typeof newWindow.closed == 'undefined') {
+                        // Popup заблокирован, показываем уведомление
+                        console.warn('Popup blocked, showing notification');
+                        alert('Ссылка на запуск найдена, но всплывающее окно заблокировано браузером. Нажмите на кнопку "View in GitHub Actions" для открытия.');
+                    } else {
+                        console.log('Run URL opened successfully');
+                    }
+                } catch (err) {
+                    console.error('Error opening URL:', err);
+                    alert('Не удалось открыть ссылку автоматически. Нажмите на кнопку "View in GitHub Actions".');
+                }
+            } else {
+                console.log('Not auto-opening (immediate):', { autoOpen });
             }
         })();
         {% endif %}
@@ -255,10 +268,23 @@
                             // Автоматически открываем ссылку если флаг включен и еще не открывали
                             if (autoOpen && !runUrlFound) {
                                 runUrlFound = true;
-                                // Небольшая задержка для лучшего UX
-                                setTimeout(() => {
-                                    window.open(data.run_url, '_blank');
-                                }, 300);
+                                console.log('Auto-opening run URL:', data.run_url, 'autoOpen:', autoOpen);
+                                // Открываем сразу, без задержки, чтобы избежать блокировки popup
+                                try {
+                                    const newWindow = window.open(data.run_url, '_blank', 'noopener,noreferrer');
+                                    if (!newWindow || newWindow.closed || typeof newWindow.closed == 'undefined') {
+                                        // Popup заблокирован, показываем уведомление
+                                        console.warn('Popup blocked, showing notification');
+                                        alert('Ссылка на запуск найдена, но всплывающее окно заблокировано браузером. Нажмите на кнопку "View in GitHub Actions" для открытия.');
+                                    } else {
+                                        console.log('Run URL opened successfully');
+                                    }
+                                } catch (err) {
+                                    console.error('Error opening URL:', err);
+                                    alert('Не удалось открыть ссылку автоматически. Нажмите на кнопку "View in GitHub Actions".');
+                                }
+                            } else {
+                                console.log('Not auto-opening:', { autoOpen, runUrlFound });
                             }
                         } else if (attempts < maxAttempts) {
                             // Продолжаем опрос
