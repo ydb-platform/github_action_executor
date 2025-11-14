@@ -10,6 +10,7 @@ from fastapi.templating import Jinja2Templates
 from backend.services.permissions import is_contributor, check_repository_access
 from backend.services.workflow import trigger_workflow
 from backend.services.github_oauth import get_oauth_url
+import config
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -116,6 +117,8 @@ async def _trigger_and_show_result(
                 "run_id": result.get("run_id"),
                 "run_url": result.get("run_url"),
                 "workflow_url": result.get("workflow_url"),
+                "trigger_time": result.get("trigger_time"),
+                "auto_open_run": config.AUTO_OPEN_RUN,
                 "error": result.get("message") if not result["success"] else None
             }
         )
@@ -170,7 +173,7 @@ async def trigger_workflow_get(
     accept_header = request.headers.get("Accept", "")
     return_json = not ui and "application/json" in accept_header
     
-    # Если нужна форма - редирект на главную страницу
+    # Если нужна форма - редирект на главную страницу со всеми параметрами
     if ui:
         params = []
         if owner:
@@ -181,6 +184,18 @@ async def trigger_workflow_get(
             params.append(f"workflow_id={workflow_id}")
         if ref and ref != "main":
             params.append(f"ref={ref}")
+        
+        # Добавляем все остальные параметры (workflow inputs)
+        query_params = dict(request.query_params)
+        excluded_params = {"owner", "repo", "workflow_id", "ref", "ui", "tests"}
+        for key, value in query_params.items():
+            if key not in excluded_params and value:
+                params.append(f"{key}={value}")
+        
+        # Если есть tests, добавляем его
+        if tests:
+            params.append(f"tests={tests}")
+        
         query_string = "&".join(params)
         return RedirectResponse(url=f"/?{query_string}")
     

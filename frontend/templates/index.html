@@ -1,61 +1,99 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GitHub Action Executor</title>
+    <title>Run GitHub Action</title>
+    <link rel="icon" type="image/jpeg" href="/static/fav.jpeg">
     <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
     <div class="container">
+        {% if not user %}
+        <div class="auth-overlay">
+            <div class="auth-modal">
+                <h2>Authentication Required</h2>
+                <p>Please sign in with GitHub to run workflows</p>
+                <a href="/auth/github" class="btn btn-primary">Sign in with GitHub</a>
+            </div>
+        </div>
+        {% endif %}
+
         <header>
-            <h1>🚀 GitHub Action Executor</h1>
-            <p class="subtitle">Запуск GitHub Actions workflows с проверкой прав</p>
+            <h1>Run GitHub Action</h1>
+            <div class="logo-container">
+                <img src="/static/fav.jpeg" alt="GitHub Action" class="github-logo">
+            </div>
         </header>
 
-        <div class="auth-section">
-            {% if user %}
-                <div class="user-info">
-                    <img src="{{ user.avatar_url }}" alt="{{ user.login }}" class="avatar">
-                    <span>Привет, <strong>{{ user.login }}</strong>!</span>
-                    <a href="/auth/logout" class="btn btn-secondary">Выйти</a>
-                </div>
-            {% else %}
-                <div class="login-prompt">
-                    <p>Для запуска workflow необходимо авторизоваться через GitHub</p>
-                    <a href="/auth/github" class="btn btn-primary">Войти через GitHub</a>
-                </div>
-            {% endif %}
-        </div>
-
         {% if user %}
-        <main>
-            <div class="form-container">
-                <form id="workflowForm" action="/workflow/trigger" method="post" class="workflow-form">
-                    <div class="form-group">
-                        <label for="owner">Владелец репозитория:</label>
-                        <input type="text" id="owner" name="owner" 
-                               value="{{ default_owner or '' }}" 
-                               placeholder="username или organization" required>
+        <main id="workflow-form-container">
+            <form id="workflowForm" action="/workflow/trigger" method="post" class="workflow-form">
+                <div class="form-group">
+                    <div class="field-header">
+                        <label for="repository">Repository</label>
                     </div>
-                    
-                    <div class="form-group">
-                        <label for="repo">Название репозитория:</label>
-                        <input type="text" id="repo" name="repo" 
-                               value="{{ default_repo or '' }}" 
-                               placeholder="repo-name" required>
+                    <div class="searchable-select-wrapper">
+                        <input type="text" 
+                               id="repository" 
+                               class="searchable-select-input" 
+                               placeholder="owner/repo"
+                               value="{% if default_owner and default_repo %}{{ default_owner }}/{{ default_repo }}{% endif %}"
+                               required>
+                        <select id="repository_select" class="searchable-select" style="display: none;">
+                            <option value=""></option>
+                        </select>
+                        <div class="searchable-select-dropdown" id="repository_dropdown"></div>
                     </div>
-                    
-                    <div class="form-group">
-                        <label for="workflow_id">Workflow:</label>
+                    <input type="hidden" id="owner" name="owner" value="{{ default_owner or '' }}">
+                    <input type="hidden" id="repo" name="repo" value="{{ default_repo or '' }}">
+                </div>
+                
+                <div class="form-group">
+                    <div class="field-header">
+                        <label for="branch">Branch</label>
+                    </div>
+                    <div class="field-with-loader">
+                        <div class="searchable-select-wrapper">
+                            <input type="text" 
+                                   id="branch_search" 
+                                   class="searchable-select-input" 
+                                   placeholder="main"
+                                   value="{% if default_ref %}{{ default_ref }}{% elif branches and branches|length > 0 %}main{% else %}main{% endif %}">
+                            <select id="ref" name="ref" class="searchable-select">
+                                {% if branches and branches|length > 0 %}
+                                    {% for branch in branches %}
+                                        <option value="{{ branch }}" {% if branch == default_ref or (not default_ref and branch == 'main') %}selected{% endif %}>{{ branch }}</option>
+                                    {% endfor %}
+                                {% else %}
+                                    <option value="main" selected>main</option>
+                                    {% if default_ref and default_ref != 'main' %}
+                                    <option value="{{ default_ref }}" selected>{{ default_ref }}</option>
+                                    {% endif %}
+                                {% endif %}
+                            </select>
+                            <div class="searchable-select-dropdown" id="branch_dropdown"></div>
+                        </div>
+                        <div id="branch-loader" class="field-loader" style="display: none;">
+                            <div class="spinner-small"></div>
+                        </div>
+                    </div>
+                    <div id="branch-error" class="error-state" style="display: none; margin-top: 8px;"></div>
+                </div>
+                
+                <div class="form-group">
+                    <div class="field-header">
+                        <label for="workflow_id">Workflow</label>
+                        <span class="optional">Optional</span>
+                    </div>
+                    <div class="field-with-loader">
                         <div class="searchable-select-wrapper">
                             <input type="text" 
                                    id="workflow_search" 
                                    class="searchable-select-input" 
-                                   placeholder="{% if workflows and workflows|length > 0 %}Поиск workflow... ({{ workflows|length }} доступно){% else %}Введите workflow ID{% endif %}" 
-                                   autocomplete="off"
+                                   placeholder="build - Build project"
                                    value="{% if default_workflow_id %}{{ default_workflow_id }}{% endif %}">
-                            <select id="workflow_id" name="workflow_id" class="searchable-select" required>
+                            <select id="workflow_id" name="workflow_id" class="searchable-select">
                                 {% if workflows and workflows|length > 0 %}
                                     {% for workflow in workflows %}
                                         <option value="{{ workflow.id }}" 
@@ -65,55 +103,113 @@
                                         </option>
                                     {% endfor %}
                                 {% else %}
-                                    <option value="{{ default_workflow_id or '' }}" selected>{{ default_workflow_id or 'Выберите workflow' }}</option>
+                                    <option value="{{ default_workflow_id or '' }}" selected>{{ default_workflow_id or '' }}</option>
                                 {% endif %}
                             </select>
                             <div class="searchable-select-dropdown" id="workflow_dropdown"></div>
                         </div>
-                        {% if not workflows or workflows|length == 0 %}
-                            <small style="color: #666; font-size: 0.7em;">Введите owner и repo, чтобы загрузить список workflows</small>
-                        {% endif %}
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="ref">Ветка:</label>
-                        <div class="searchable-select-wrapper">
-                            <input type="text" 
-                                   id="branch_search" 
-                                   class="searchable-select-input" 
-                                   placeholder="{% if branches and branches|length > 0 %}Поиск ветки... ({{ branches|length }} доступно){% else %}Введите название ветки{% endif %}" 
-                                   autocomplete="off"
-                                   value="{% if branches and branches|length > 0 %}main{% else %}main{% endif %}">
-                            <select id="ref" name="ref" class="searchable-select">
-                                {% if branches and branches|length > 0 %}
-                                    {% for branch in branches %}
-                                        <option value="{{ branch }}" 
-                                                {% if branch == 'main' %}selected{% endif %}>
-                                            {{ branch }}
-                                        </option>
-                                    {% endfor %}
-                                {% else %}
-                                    <option value="main" selected>main</option>
-                                {% endif %}
-                            </select>
-                            <div class="searchable-select-dropdown" id="branch_dropdown"></div>
+                        <div id="workflow-loader" class="field-loader" style="display: none;">
+                            <div class="spinner-small"></div>
                         </div>
-                        {% if not branches or branches|length == 0 %}
-                            <small style="color: #666; font-size: 0.7em;">Введите owner и repo, чтобы загрузить список веток</small>
-                        {% endif %}
                     </div>
+                    <div id="workflow-error" class="error-state" style="display: none; margin-top: 8px;"></div>
+                </div>
 
-                    {# Динамические поля для workflow inputs #}
+                {# Динамические поля для workflow inputs #}
+                <div id="workflow-inputs-wrapper" style="display: none;">
                     <div id="workflow-inputs"></div>
-                    
-                    <button type="submit" class="btn btn-primary">Запустить Workflow</button>
-                </form>
-            </div>
-        </main>
-        {% endif %}
+                </div>
+                
+                <div style="display: flex; gap: 12px; align-items: center;">
+                    <button type="submit" class="btn btn-primary" style="flex: 1;">Run workflow</button>
+                    <button type="button" id="run-link-btn" class="btn btn-secondary" style="flex: 0 0 auto; opacity: 0.6; font-size: 13px; padding: 8px 16px; border-color: #d1d5db; background: #f9fafb; color: #6b7280;">Run link</button>
+                    <button type="button" id="form-link-btn" class="btn btn-secondary" style="flex: 0 0 auto; opacity: 0.6; font-size: 13px; padding: 8px 16px; border-color: #d1d5db; background: #f9fafb; color: #6b7280;">Form link</button>
+                </div>
+            </form>
+            
+            <footer class="page-footer">
+                <div class="footer-content">
+                    <div class="user-info">
+                        {% if user.avatar_url %}
+                        <img src="{{ user.avatar_url }}" alt="{{ user.login }}" class="user-avatar">
+                        {% else %}
+                        <div class="user-icon">👤</div>
+                        {% endif %}
+                        <span class="user-login">{{ user.login }}</span>
+                    </div>
+                    <a href="/auth/logout" class="btn btn-secondary btn-small">Выйти</a>
+                </div>
+            </footer>
+    </main>
+    {% endif %}
     </div>
-    
+
     <script>
+        // Функция для получения workflow inputs из URL параметров
+        function getWorkflowInputsFromUrl() {
+            try {
+                const urlParams = new URLSearchParams(window.location.search);
+                const workflowInputs = {};
+                
+                // Список служебных параметров, которые не являются workflow inputs
+                const excludedParams = ['owner', 'repo', 'workflow_id', 'ref', 'ui', 'tests'];
+                
+                // Извлекаем все параметры кроме служебных
+                for (const [key, value] of urlParams.entries()) {
+                    if (!excludedParams.includes(key) && value) {
+                        workflowInputs[key] = value;
+                    }
+                }
+                
+                return workflowInputs;
+            } catch (e) {
+                console.error('Failed to get workflow inputs from URL:', e);
+                return {};
+            }
+        }
+        
+        // Функция для предзаполнения workflow inputs из URL параметров
+        function populateWorkflowInputsFromUrl() {
+            const workflowInputsFromUrl = getWorkflowInputsFromUrl();
+            if (!workflowInputsFromUrl || Object.keys(workflowInputsFromUrl).length === 0) {
+                return;
+            }
+            
+            console.log('Populating workflow inputs from URL:', workflowInputsFromUrl);
+            
+            for (const [inputName, inputValue] of Object.entries(workflowInputsFromUrl)) {
+                const inputElement = document.getElementById(`input_${inputName}`);
+                if (inputElement) {
+                    if (inputElement.type === 'checkbox') {
+                        inputElement.checked = inputValue === 'true' || inputValue === true || inputValue === '1';
+                    } else if (inputElement.tagName === 'SELECT') {
+                        // Для select выбираем опцию по значению
+                        inputElement.value = inputValue;
+                        // Если есть связанное поле поиска, обновляем его
+                        const searchInputId = inputElement.id.replace('input_', '').replace(/_/g, '-');
+                        const searchInput = document.getElementById(`search_${inputName}`);
+                        if (!searchInput) {
+                            // Пытаемся найти по другому паттерну
+                            const parent = inputElement.closest('.form-group');
+                            if (parent) {
+                                const searchInputs = parent.querySelectorAll('input[type="text"]');
+                                if (searchInputs.length > 0) {
+                                    const selectedOption = inputElement.options[inputElement.selectedIndex];
+                                    if (selectedOption) {
+                                        searchInputs[0].value = selectedOption.textContent;
+                                    }
+                                }
+                            }
+                        }
+                    } else {
+                        inputElement.value = inputValue;
+                    }
+                    console.log(`Populated input_${inputName} with value:`, inputValue);
+                } else {
+                    console.warn(`Input element not found: input_${inputName}`);
+                }
+            }
+        }
         // Функция для инициализации searchable select
         function initSearchableSelect(searchInputId, selectId, dropdownId) {
             const searchInput = document.getElementById(searchInputId);
@@ -122,9 +218,15 @@
             
             if (!searchInput || !select || !dropdown) return;
             
-            function updateDropdown() {
+            // Сохраняем исходное значение для проверки
+            let initialValue = '';
+            // Флаг для отслеживания первого ввода после фокуса
+            let isFirstInput = false;
+            
+            function updateDropdown(filterText = null) {
                 dropdown.innerHTML = '';
-                const searchTerm = searchInput.value.toLowerCase();
+                // Если filterText передан, используем его, иначе берем из поля ввода
+                const searchTerm = (filterText !== null ? filterText : searchInput.value).toLowerCase();
                 
                 Array.from(select.options).forEach(function(option) {
                     if (option.value === '') return;
@@ -142,6 +244,7 @@
                         select.value = option.value;
                         searchInput.value = option.textContent;
                         dropdown.classList.remove('show');
+                        initialValue = option.textContent;
                         updateDropdown();
                         
                         // Загружаем workflow inputs при изменении workflow
@@ -154,17 +257,95 @@
             }
             
             searchInput.addEventListener('focus', function() {
-                updateDropdown();
+                // Сохраняем текущее значение при фокусе
+                initialValue = searchInput.value;
+                isFirstInput = false;
+                // При фокусе показываем все опции (не фильтруем)
+                updateDropdown('');
                 dropdown.classList.add('show');
             });
             
-            searchInput.addEventListener('input', function() {
-                updateDropdown();
-                dropdown.classList.add('show');
+            searchInput.addEventListener('input', function(e) {
+                const currentValue = searchInput.value;
+                
+                // Если пользователь начал вводить и значение изменилось от исходного
+                if (currentValue !== initialValue) {
+                    // Если это первый ввод и значение начинается с исходного - очищаем поле
+                    if (initialValue && isFirstInput && currentValue.startsWith(initialValue)) {
+                        // Очищаем поле и оставляем только новый ввод
+                        const newValue = currentValue.replace(initialValue, '');
+                        searchInput.value = newValue;
+                        updateDropdown(newValue);
+                        isFirstInput = false;
+                    } else {
+                        // Показываем отфильтрованный список
+                        updateDropdown(currentValue);
+                        isFirstInput = false;
+                    }
+                    dropdown.classList.add('show');
+                    
+                    // Если пользователь вводит текст, который точно совпадает с опцией - выбираем её
+                    const searchTerm = searchInput.value.trim();
+                    if (searchTerm) {
+                        Array.from(select.options).forEach(function(option) {
+                            if (option.value === '' || option.value === searchTerm || option.textContent.toLowerCase() === searchTerm.toLowerCase()) {
+                                if (option.value === searchTerm || option.textContent.toLowerCase() === searchTerm.toLowerCase()) {
+                                    select.value = option.value;
+                                    return;
+                                }
+                            }
+                        });
+                    }
+                }
+            });
+            
+            // При начале ввода (keydown) - если поле содержит исходное значение, отмечаем что это первый ввод
+            searchInput.addEventListener('keydown', function(e) {
+                // Если это не служебная клавиша (стрелки, enter, escape, backspace, delete и т.д.)
+                if (!['ArrowUp', 'ArrowDown', 'Enter', 'Escape', 'Tab', 'Backspace', 'Delete'].includes(e.key) && e.key.length === 1) {
+                    // Если поле содержит исходное значение и пользователь начинает вводить
+                    if (initialValue && searchInput.value === initialValue) {
+                        isFirstInput = true;
+                    }
+                }
+            });
+            
+            // При потере фокуса, если значение не совпадает с опцией - оставляем как есть или сбрасываем
+            searchInput.addEventListener('blur', function() {
+                // Небольшая задержка, чтобы клик по опции успел сработать
+                setTimeout(function() {
+                    const searchTerm = searchInput.value.trim();
+                    const selectedOption = select.options[select.selectedIndex];
+                    
+                    // Если введенный текст не совпадает с выбранной опцией, пытаемся найти совпадение
+                    if (searchTerm && selectedOption && selectedOption.textContent.toLowerCase() !== searchTerm.toLowerCase()) {
+                        let found = false;
+                        Array.from(select.options).forEach(function(option) {
+                            if (option.value && !found) {
+                                if (option.textContent.toLowerCase() === searchTerm.toLowerCase() || 
+                                    option.value.toLowerCase() === searchTerm.toLowerCase()) {
+                                    select.value = option.value;
+                                    searchInput.value = option.textContent;
+                                    found = true;
+                                }
+                            }
+                        });
+                        
+                        // Если не нашли точного совпадения, оставляем текущее значение
+                        if (!found && selectedOption && selectedOption.value) {
+                            searchInput.value = selectedOption.textContent;
+                        }
+                    } else if (selectedOption && selectedOption.value) {
+                        // Обновляем текст в поле ввода на основе выбранной опции
+                        searchInput.value = selectedOption.textContent;
+                    }
+                    
+                    dropdown.classList.remove('show');
+                }, 200);
             });
             
             document.addEventListener('click', function(e) {
-                if (!searchInput.contains(e.target) && !dropdown.contains(e.target)) {
+                if (!searchInput.contains(e.target) && !dropdown.contains(e.target) && !select.contains(e.target)) {
                     dropdown.classList.remove('show');
                 }
             });
@@ -176,6 +357,17 @@
                 }
                 if (selectId === 'workflow_id') {
                     loadWorkflowInputs();
+                } else if (selectId === 'ref') {
+                    // При изменении branch загружаем workflows
+                    const ownerInput = document.getElementById('owner');
+                    const repoInput = document.getElementById('repo');
+                    if (ownerInput && repoInput) {
+                        const owner = ownerInput.value.trim();
+                        const repo = repoInput.value.trim();
+                        if (owner && repo) {
+                            loadWorkflows(owner, repo);
+                        }
+                    }
                 }
             });
             
@@ -191,14 +383,17 @@
             const repo = document.getElementById('repo').value.trim();
             const workflowId = document.getElementById('workflow_id').value.trim();
             const inputsContainer = document.getElementById('workflow-inputs');
+            const inputsWrapper = document.getElementById('workflow-inputs-wrapper');
             
-            if (!owner || !repo || !workflowId || !inputsContainer) {
+            if (!owner || !repo || !workflowId || !inputsContainer || !inputsWrapper) {
                 inputsContainer.innerHTML = '';
+                inputsWrapper.style.display = 'none';
                 return;
             }
             
             try {
-                inputsContainer.innerHTML = '<div style="padding: 5px; color: #666; font-size: 0.7em;">Загрузка параметров workflow...</div>';
+                inputsWrapper.style.display = 'block';
+                inputsContainer.innerHTML = '<div class="loading-state"><div class="spinner"></div><span>Loading workflow parameters...</span></div>';
                 
                 const response = await fetch(`/api/workflow-info?owner=${encodeURIComponent(owner)}&repo=${encodeURIComponent(repo)}&workflow_id=${encodeURIComponent(workflowId)}`);
                 
@@ -208,73 +403,102 @@
                     
                     if (Object.keys(inputs).length === 0) {
                         inputsContainer.innerHTML = '';
+                        inputsWrapper.style.display = 'none';
                         return;
                     }
                     
                     let html = '';
                     for (const [inputName, inputConfig] of Object.entries(inputs)) {
-                        const fieldLabel = inputConfig.description || inputName.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
                         const isRequired = inputConfig.required || false;
                         const defaultValue = inputConfig.default;
+                        const description = inputConfig.description || '';
                         
                         html += '<div class="form-group">';
-                        html += `<label for="input_${inputName}">${fieldLabel}${isRequired ? ' <span class="required">*</span>' : ''}</label>`;
+                        html += `<div class="field-header">`;
+                        html += `<label for="input_${inputName}">${inputName}</label>`;
+                        if (!isRequired) {
+                            html += `<span class="optional">Optional</span>`;
+                        }
+                        html += `</div>`;
                         
                         if (inputConfig.type === 'choice') {
                             html += `<select id="input_${inputName}" name="${inputName}" class="form-select" ${isRequired ? 'required' : ''}>`;
                             if (!isRequired) {
-                                html += '<option value="">-- Не выбрано --</option>';
+                                html += '<option value=""></option>';
                             }
                             for (const option of inputConfig.options || []) {
                                 html += `<option value="${option}" ${option === defaultValue ? 'selected' : ''}>${option}</option>`;
                             }
                             html += '</select>';
                         } else if (inputConfig.type === 'boolean') {
+                            html += `<div class="checkbox-wrapper">`;
                             html += `<label class="checkbox-label">`;
                             html += `<input type="checkbox" id="input_${inputName}" name="${inputName}" value="true" ${defaultValue ? 'checked' : ''}>`;
-                            html += `<span>${fieldLabel}</span>`;
+                            html += `<span>${inputName}</span>`;
                             html += `</label>`;
+                            html += `</div>`;
                         } else if (inputConfig.type === 'environment') {
                             html += `<select id="input_${inputName}" name="${inputName}" class="form-select" ${isRequired ? 'required' : ''}>`;
                             if (!isRequired) {
-                                html += '<option value="">-- Не выбрано --</option>';
+                                html += '<option value=""></option>';
                             }
                             for (const env of ['production', 'staging', 'development', 'test']) {
                                 html += `<option value="${env}" ${env === defaultValue ? 'selected' : ''}>${env}</option>`;
                             }
                             html += '</select>';
                         } else {
-                            html += `<input type="text" id="input_${inputName}" name="${inputName}" value="${defaultValue || ''}" placeholder="${fieldLabel}" class="form-input" ${isRequired ? 'required' : ''}>`;
+                            html += `<input type="text" id="input_${inputName}" name="${inputName}" value="${defaultValue || ''}" placeholder="" class="form-input" ${isRequired ? 'required' : ''}>`;
+                        }
+                        
+                        // Добавляем description серым текстом под полем, если есть
+                        if (description) {
+                            html += `<small style="color: #9ca3af; font-size: 12px; margin-top: 4px; display: block;">${description}</small>`;
                         }
                         
                         html += '</div>';
                     }
                     
                     inputsContainer.innerHTML = html;
+                    inputsWrapper.style.display = 'block';
+                    
+                    // Предзаполняем поля значениями из URL параметров
+                    // Используем небольшую задержку, чтобы DOM успел обновиться
+                    setTimeout(function() {
+                        populateWorkflowInputsFromUrl();
+                    }, 200);
                 } else {
-                    inputsContainer.innerHTML = '';
+                    // Ошибка от сервера
+                    const errorText = await response.text();
+                    let errorMessage = 'Failed to load workflow parameters';
+                    try {
+                        const errorData = JSON.parse(errorText);
+                        errorMessage = errorData.detail || errorMessage;
+                    } catch (e) {
+                        errorMessage = errorText || errorMessage;
+                    }
+                    inputsContainer.innerHTML = `<div class="error-state">${errorMessage}</div>`;
+                    inputsWrapper.style.display = 'block';
                 }
             } catch (error) {
                 console.error('Failed to load workflow inputs:', error);
-                inputsContainer.innerHTML = '';
+                inputsContainer.innerHTML = `<div class="error-state">Failed to load workflow parameters: ${error.message}</div>`;
+                inputsWrapper.style.display = 'block';
             }
         }
         
-        // Функция для загрузки branches и workflows
-        async function loadBranchesAndWorkflows(owner, repo) {
+        // Функция для загрузки только workflows
+        async function loadWorkflows(owner, repo) {
             if (!owner || !repo) return;
             
+            const workflowLoader = document.getElementById('workflow-loader');
+            const workflowError = document.getElementById('workflow-error');
+            
+            // Показываем спиннер
+            if (workflowLoader) workflowLoader.style.display = 'flex';
+            if (workflowError) workflowError.style.display = 'none';
+            
             try {
-                const [branchesResponse, workflowsResponse] = await Promise.all([
-                    fetch(`/api/branches?owner=${encodeURIComponent(owner)}&repo=${encodeURIComponent(repo)}`),
-                    fetch(`/api/workflows?owner=${encodeURIComponent(owner)}&repo=${encodeURIComponent(repo)}`)
-                ]);
-                
-                if (branchesResponse.ok) {
-                    const branchesData = await branchesResponse.json();
-                    updateSelect('ref', branchesData.branches, 'main');
-                    initSearchableSelect('branch_search', 'ref', 'branch_dropdown');
-                }
+                const workflowsResponse = await fetch(`/api/workflows?owner=${encodeURIComponent(owner)}&repo=${encodeURIComponent(repo)}`);
                 
                 if (workflowsResponse.ok) {
                     const workflowsData = await workflowsResponse.json();
@@ -282,9 +506,123 @@
                     initSearchableSelect('workflow_search', 'workflow_id', 'workflow_dropdown');
                     // Загружаем inputs для выбранного workflow
                     loadWorkflowInputs();
+                    if (workflowError) workflowError.style.display = 'none';
+                } else {
+                    // Показываем ошибку для workflows
+                    let errorMessage = 'Failed to load workflows';
+                    try {
+                        const errorData = await workflowsResponse.json();
+                        errorMessage = errorData.detail || errorMessage;
+                    } catch (e) {
+                        errorMessage = `Failed to load workflows: ${workflowsResponse.status} ${workflowsResponse.statusText}`;
+                    }
+                    if (workflowError) {
+                        workflowError.textContent = errorMessage;
+                        workflowError.style.display = 'block';
+                    }
+                    console.error('Failed to load workflows:', errorMessage);
+                }
+            } catch (error) {
+                console.error('Failed to load workflows:', error);
+                if (workflowError) {
+                    workflowError.textContent = `Error: ${error.message}`;
+                    workflowError.style.display = 'block';
+                }
+            } finally {
+                if (workflowLoader) workflowLoader.style.display = 'none';
+            }
+        }
+        
+        // Функция для загрузки branches и workflows
+        async function loadBranchesAndWorkflows(owner, repo) {
+            if (!owner || !repo) return;
+            
+            const branchLoader = document.getElementById('branch-loader');
+            const workflowLoader = document.getElementById('workflow-loader');
+            
+            // Показываем спиннеры
+            if (branchLoader) branchLoader.style.display = 'flex';
+            if (workflowLoader) workflowLoader.style.display = 'flex';
+            
+            // Скрываем предыдущие ошибки
+            const branchError = document.getElementById('branch-error');
+            const workflowError = document.getElementById('workflow-error');
+            if (branchError) branchError.style.display = 'none';
+            if (workflowError) workflowError.style.display = 'none';
+            
+            try {
+                // Формируем URL для branches (без env параметра, фильтрация из конфига)
+                const branchesUrl = `/api/branches?owner=${encodeURIComponent(owner)}&repo=${encodeURIComponent(repo)}`;
+                
+                const [branchesResponse, workflowsResponse] = await Promise.all([
+                    fetch(branchesUrl),
+                    fetch(`/api/workflows?owner=${encodeURIComponent(owner)}&repo=${encodeURIComponent(repo)}`)
+                ]);
+                
+                // Обработка branches
+                if (branchesResponse.ok) {
+                    const branchesData = await branchesResponse.json();
+                    updateSelect('ref', branchesData.branches, 'main');
+                    initSearchableSelect('branch_search', 'ref', 'branch_dropdown');
+                    if (branchError) branchError.style.display = 'none';
+                } else {
+                    // Показываем ошибку для branches
+                    let errorMessage = 'Failed to load branches';
+                    try {
+                        const errorData = await branchesResponse.json();
+                        errorMessage = errorData.detail || errorMessage;
+                    } catch (e) {
+                        errorMessage = `Failed to load branches: ${branchesResponse.status} ${branchesResponse.statusText}`;
+                    }
+                    if (branchError) {
+                        branchError.textContent = errorMessage;
+                        branchError.style.display = 'block';
+                    }
+                    console.error('Failed to load branches:', errorMessage);
+                }
+                
+                // Обработка workflows - загружаем только если branch уже выбран
+                // Иначе загрузим после выбора branch
+                const refSelect = document.getElementById('ref');
+                if (refSelect && refSelect.value) {
+                    if (workflowsResponse.ok) {
+                        const workflowsData = await workflowsResponse.json();
+                        updateSelect('workflow_id', workflowsData.workflows.map(w => ({id: w.id, name: w.name})), null);
+                        initSearchableSelect('workflow_search', 'workflow_id', 'workflow_dropdown');
+                        // Загружаем inputs для выбранного workflow
+                        loadWorkflowInputs();
+                        if (workflowError) workflowError.style.display = 'none';
+                    } else {
+                        // Показываем ошибку для workflows
+                        let errorMessage = 'Failed to load workflows';
+                        try {
+                            const errorData = await workflowsResponse.json();
+                            errorMessage = errorData.detail || errorMessage;
+                        } catch (e) {
+                            errorMessage = `Failed to load workflows: ${workflowsResponse.status} ${workflowsResponse.statusText}`;
+                        }
+                        if (workflowError) {
+                            workflowError.textContent = errorMessage;
+                            workflowError.style.display = 'block';
+                        }
+                        console.error('Failed to load workflows:', errorMessage);
+                    }
                 }
             } catch (error) {
                 console.error('Failed to load branches/workflows:', error);
+                // Показываем общую ошибку
+                if (branchError) {
+                    branchError.textContent = `Error: ${error.message}`;
+                    branchError.style.display = 'block';
+                }
+                if (workflowError) {
+                    workflowError.textContent = `Error: ${error.message}`;
+                    workflowError.style.display = 'block';
+                }
+            } finally {
+                // Скрываем спиннеры
+                if (branchLoader) branchLoader.style.display = 'none';
+                if (workflowLoader) workflowLoader.style.display = 'none';
             }
         }
         
@@ -326,38 +664,277 @@
             }
         }
         
+        // Обработка поля Repository (owner/repo)
+        function setupRepositoryField() {
+            const repositoryInput = document.getElementById('repository');
+            const ownerInput = document.getElementById('owner');
+            const repoInput = document.getElementById('repo');
+            
+            if (!repositoryInput || !ownerInput || !repoInput) return;
+            
+            let loadTimeout;
+            
+            function updateOwnerRepo() {
+                const value = repositoryInput.value.trim();
+                const parts = value.split('/');
+                
+                if (parts.length >= 2) {
+                    const owner = parts[0].trim();
+                    const repo = parts.slice(1).join('/').trim(); // На случай если repo содержит /
+                    ownerInput.value = owner;
+                    repoInput.value = repo;
+                    
+                    clearTimeout(loadTimeout);
+                    loadTimeout = setTimeout(function() {
+                        if (owner && repo) {
+                            loadBranchesAndWorkflows(owner, repo);
+                        }
+                    }, 500);
+                }
+            }
+            
+            repositoryInput.addEventListener('input', updateOwnerRepo);
+            repositoryInput.addEventListener('blur', updateOwnerRepo);
+            
+            // Инициализация при загрузке
+            if (ownerInput.value && repoInput.value) {
+                repositoryInput.value = `${ownerInput.value}/${repoInput.value}`;
+                if (ownerInput.value && repoInput.value) {
+                    loadBranchesAndWorkflows(ownerInput.value, repoInput.value);
+                }
+            }
+        }
+        
+        // Валидация формы перед отправкой
+        function setupFormValidation() {
+            const form = document.getElementById('workflowForm');
+            if (!form) return;
+            
+            // Блокируем отправку формы по Enter во всех полях ввода
+            form.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter') {
+                    // Разрешаем Enter только на кнопке submit
+                    if (e.target.tagName === 'BUTTON' && e.target.type === 'submit') {
+                        return true; // Разрешаем отправку только при явном клике на кнопку
+                    }
+                    // Блокируем Enter во всех остальных случаях
+                    e.preventDefault();
+                    e.stopPropagation();
+                    return false;
+                }
+            });
+            
+            form.addEventListener('submit', function(e) {
+                const repositoryInput = document.getElementById('repository');
+                const ownerInput = document.getElementById('owner');
+                const repoInput = document.getElementById('repo');
+                
+                if (!repositoryInput || !ownerInput || !repoInput) {
+                    e.preventDefault();
+                    alert('Please enter a valid repository (owner/repo)');
+                    return false;
+                }
+                
+                const value = repositoryInput.value.trim();
+                const parts = value.split('/');
+                
+                if (parts.length < 2 || !parts[0].trim() || !parts.slice(1).join('/').trim()) {
+                    e.preventDefault();
+                    alert('Please enter a valid repository in format: owner/repo');
+                    return false;
+                }
+                
+                // Обновляем hidden поля перед отправкой
+                const owner = parts[0].trim();
+                const repo = parts.slice(1).join('/').trim();
+                ownerInput.value = owner;
+                repoInput.value = repo;
+            });
+        }
+        
+        // Общая функция для копирования в буфер обмена с обратной связью
+        function copyToClipboard(text, button) {
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(text).then(function() {
+                    showCopyFeedback(button);
+                }).catch(function(err) {
+                    console.error('Failed to copy:', err);
+                    prompt('Copy this URL:', text);
+                });
+            } else {
+                // Fallback для старых браузеров
+                const textArea = document.createElement('textarea');
+                textArea.value = text;
+                textArea.style.position = 'fixed';
+                textArea.style.left = '-999999px';
+                document.body.appendChild(textArea);
+                textArea.select();
+                try {
+                    document.execCommand('copy');
+                    showCopyFeedback(button);
+                } catch (err) {
+                    console.error('Failed to copy:', err);
+                    prompt('Copy this URL:', text);
+                }
+                document.body.removeChild(textArea);
+            }
+        }
+        
+        // Функция для показа обратной связи после копирования
+        function showCopyFeedback(button) {
+            const originalText = button.textContent;
+            const originalOpacity = button.style.opacity;
+            button.textContent = 'Copied!';
+            button.style.background = '#10b981';
+            button.style.color = '#fff';
+            button.style.opacity = '1';
+            button.style.borderColor = '#10b981';
+            
+            setTimeout(function() {
+                button.textContent = originalText;
+                button.style.background = '#f9fafb';
+                button.style.color = '#6b7280';
+                button.style.opacity = originalOpacity || '0.6';
+                button.style.borderColor = '#d1d5db';
+            }, 2000);
+        }
+        
+        // Функция для получения всех параметров из формы
+        function getFormParams(includeInputs) {
+            const ownerInput = document.getElementById('owner');
+            const repoInput = document.getElementById('repo');
+            const workflowIdSelect = document.getElementById('workflow_id');
+            const refSelect = document.getElementById('ref');
+            
+            if (!ownerInput || !repoInput || !workflowIdSelect || !refSelect) {
+                return null;
+            }
+            
+            const owner = ownerInput.value.trim();
+            const repo = repoInput.value.trim();
+            const workflowId = workflowIdSelect.value.trim();
+            const ref = refSelect.value.trim();
+            
+            if (!owner || !repo || !workflowId || !ref) {
+                return null;
+            }
+            
+            const params = new URLSearchParams({
+                owner: owner,
+                repo: repo,
+                workflow_id: workflowId,
+                ref: ref
+            });
+            
+            // Добавляем все inputs из формы если нужно
+            if (includeInputs) {
+                const form = document.getElementById('workflowForm');
+                if (form) {
+                    const formData = new FormData(form);
+                    for (const [key, value] of formData.entries()) {
+                        // Пропускаем служебные поля
+                        if (!['owner', 'repo', 'workflow_id', 'ref'].includes(key) && value) {
+                            params.append(key, value);
+                        }
+                    }
+                }
+            }
+            
+            return params;
+        }
+        
+        // Функция для копирования ссылки на запуск (Run link)
+        function setupRunLinkButton() {
+            const runLinkBtn = document.getElementById('run-link-btn');
+            if (!runLinkBtn) {
+                console.warn('Run link button not found');
+                return;
+            }
+            
+            runLinkBtn.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                
+                const params = getFormParams(true); // includeInputs = true
+                if (!params) {
+                    alert('Please fill in repository, workflow and branch');
+                    return;
+                }
+                
+                const baseUrl = window.location.origin;
+                const triggerUrl = `${baseUrl}/workflow/trigger?${params.toString()}`;
+                
+                copyToClipboard(triggerUrl, runLinkBtn);
+            });
+        }
+        
+        // Функция для копирования ссылки на форму (Form link)
+        function setupFormLinkButton() {
+            const formLinkBtn = document.getElementById('form-link-btn');
+            if (!formLinkBtn) {
+                console.warn('Form link button not found');
+                return;
+            }
+            
+            formLinkBtn.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                
+                const params = getFormParams(true); // includeInputs = true
+                if (!params) {
+                    alert('Please fill in repository, workflow and branch');
+                    return;
+                }
+                
+                // Добавляем ui=true для открытия предзаполненной формы
+                params.append('ui', 'true');
+                
+                const baseUrl = window.location.origin;
+                const formUrl = `${baseUrl}/workflow/trigger?${params.toString()}`;
+                
+                copyToClipboard(formUrl, formLinkBtn);
+            });
+        }
+        
         // Инициализация при загрузке
         function initAll() {
             initSearchableSelect('workflow_search', 'workflow_id', 'workflow_dropdown');
             initSearchableSelect('branch_search', 'ref', 'branch_dropdown');
+            setupRepositoryField();
+            setupFormValidation();
+            setupRunLinkButton();
+            setupFormLinkButton();
             
+            // Если workflow_id уже выбран и есть owner/repo, загружаем workflow inputs
             const ownerInput = document.getElementById('owner');
             const repoInput = document.getElementById('repo');
-            let loadTimeout;
+            const workflowIdSelect = document.getElementById('workflow_id');
             
-            function handleOwnerRepoChange() {
-                clearTimeout(loadTimeout);
-                loadTimeout = setTimeout(function() {
-                    const owner = ownerInput.value.trim();
-                    const repo = repoInput.value.trim();
-                    if (owner && repo) {
-                        loadBranchesAndWorkflows(owner, repo);
-                    }
-                }, 500);
-            }
-            
-            if (ownerInput) {
-                ownerInput.addEventListener('input', handleOwnerRepoChange);
-                ownerInput.addEventListener('blur', handleOwnerRepoChange);
-            }
-            
-            if (repoInput) {
-                repoInput.addEventListener('input', handleOwnerRepoChange);
-                repoInput.addEventListener('blur', handleOwnerRepoChange);
-            }
-            
-            if (ownerInput && repoInput && ownerInput.value && repoInput.value) {
-                loadBranchesAndWorkflows(ownerInput.value, repoInput.value);
+            if (ownerInput && repoInput && workflowIdSelect) {
+                const owner = ownerInput.value.trim();
+                const repo = repoInput.value.trim();
+                const workflowId = workflowIdSelect.value.trim();
+                
+                if (owner && repo && workflowId) {
+                    // Небольшая задержка, чтобы форма успела инициализироваться
+                    setTimeout(async function() {
+                        await loadWorkflowInputs();
+                        // После загрузки workflow inputs предзаполняем их из URL
+                        setTimeout(function() {
+                            populateWorkflowInputsFromUrl();
+                        }, 300);
+                    }, 500);
+                } else {
+                    // Если workflow_id нет, все равно попробуем предзаполнить то, что есть
+                    setTimeout(function() {
+                        populateWorkflowInputsFromUrl();
+                    }, 300);
+                }
+            } else {
+                // Если элементов нет, все равно попробуем предзаполнить через некоторое время
+                setTimeout(function() {
+                    populateWorkflowInputsFromUrl();
+                }, 1000);
             }
         }
         

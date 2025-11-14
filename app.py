@@ -11,6 +11,7 @@ from fastapi.templating import Jinja2Templates
 from starlette.middleware.sessions import SessionMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
 from dotenv import load_dotenv
+import config
 
 from backend.routes import auth, workflow, api
 
@@ -77,16 +78,27 @@ async def root(
     default_workflow_id = workflow_id or os.getenv("DEFAULT_WORKFLOW_ID", "")
     default_ref = ref or "main"
     
+    # Извлекаем все остальные параметры для предзаполнения workflow inputs
+    workflow_inputs = {}
+    query_params = dict(request.query_params)
+    excluded_params = {"owner", "repo", "workflow_id", "ref"}
+    for key, value in query_params.items():
+        if key not in excluded_params and value:
+            workflow_inputs[key] = value
+    
     # Try to load branches and workflows if owner and repo are provided
     branches = []
     workflows_list = []
+    
+    # Используем паттерны из конфига для фильтрации веток
+    branch_filter_patterns = config.BRANCH_FILTER_PATTERNS if config.BRANCH_FILTER_PATTERNS else None
     if default_owner and default_repo:
         try:
             from backend.services.branches import get_branches
             from backend.services.workflows import get_workflows
             import asyncio
             
-            branches_task = get_branches(default_owner, default_repo)
+            branches_task = get_branches(default_owner, default_repo, env_patterns=branch_filter_patterns)
             workflows_task = get_workflows(default_owner, default_repo)
             branches, workflows_list = await asyncio.gather(
                 branches_task,
@@ -111,8 +123,11 @@ async def root(
             "default_owner": default_owner,
             "default_repo": default_repo,
             "default_workflow_id": default_workflow_id,
+            "default_ref": default_ref,
+            "workflow_inputs": workflow_inputs,  # Параметры для предзаполнения workflow inputs
             "branches": branches,
-            "workflows": workflows_list
+            "workflows": workflows_list,
+            "auto_open_run": config.AUTO_OPEN_RUN
         }
     )
 

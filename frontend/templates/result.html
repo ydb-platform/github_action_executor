@@ -1,38 +1,58 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
-    <title>Результат запуска - GitHub Action Executor</title>
+    <title>Workflow Result - Run GitHub Action</title>
+    <link rel="icon" type="image/jpeg" href="/static/fav.jpeg">
     <link rel="stylesheet" href="/static/style.css">
+    <style>
+        .run-loader {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+            margin: 24px 0;
+        }
+        
+        .loader {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #000;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin-bottom: 12px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .loading-message {
+            text-align: center;
+            color: #666;
+            font-size: 14px;
+        }
+    </style>
 </head>
 <body>
     <div class="container">
-        <header>
-            <h1>📊 Результат запуска Workflow</h1>
-        </header>
-
-        {% if user %}
-        <div class="user-info">
-            <img src="{{ user.avatar_url }}" alt="{{ user.login }}" class="avatar">
-            <span>{{ user.login }}</span>
-            <a href="/" class="btn btn-secondary">На главную</a>
-        </div>
-        {% endif %}
-
         <main>
             {% if success %}
             <div class="result success">
-                <div class="result-icon">✅</div>
-                <h2>Успешно!</h2>
+                <div class="result-icon">✓</div>
+                <h2>Success</h2>
                 <p class="result-message">{{ message }}</p>
                 
                 <div class="workflow-info">
                     <div class="info-item">
-                        <strong>Репозиторий:</strong>
+                        <strong>Repository:</strong>
                         <a href="https://github.com/{{ owner }}/{{ repo }}" target="_blank">
                             {{ owner }}/{{ repo }}
                         </a>
@@ -41,41 +61,54 @@
                         <strong>Workflow:</strong> {{ workflow_id }}
                     </div>
                     <div class="info-item">
-                        <strong>Ветка:</strong> {{ ref }}
+                        <strong>Branch:</strong> {{ ref }}
                     </div>
-                    {% if inputs and inputs.tests %}
-                    <div class="info-item">
-                        <strong>Тесты:</strong> {{ inputs.tests }}
-                    </div>
+                    {% if inputs %}
+                        {% for key, value in inputs.items() %}
+                            {% if value %}
+                            <div class="info-item">
+                                <strong>{{ key }}:</strong> {{ value }}
+                            </div>
+                            {% endif %}
+                        {% endfor %}
                     {% endif %}
                 </div>
 
-                <div class="action-links">
+                <div id="run-loader" class="run-loader" style="display: {% if run_url %}none{% else %}flex{% endif %};">
+                    <div class="loader"></div>
+                    <p class="loading-message">Ищем запуск workflow...</p>
+                </div>
+
+                <div class="action-links" id="action-links" style="display: {% if run_url %}flex{% else %}none{% endif %};">
                     {% if run_url %}
-                    <a href="{{ run_url }}" target="_blank" class="btn btn-primary">
-                        🔗 Открыть в GitHub Actions
-                    </a>
-                    {% elif workflow_url %}
-                    <a href="{{ workflow_url }}" target="_blank" class="btn btn-primary">
-                        🔗 Открыть Workflow в GitHub
+                    <a href="{{ run_url }}" target="_blank" class="btn btn-primary" id="run-link" style="width: 100%;">
+                        Open Run
                     </a>
                     {% endif %}
-                    
-                    <a href="/?owner={{ owner }}&repo={{ repo }}&workflow_id={{ workflow_id }}" class="btn btn-secondary">
-                        🔄 Запустить еще раз
+                </div>
+                
+                <div class="action-links" style="display: flex; margin-top: 12px;">
+                    {% if workflow_url %}
+                    <a href="{{ workflow_url }}" target="_blank" class="btn btn-secondary">
+                        View Workflow
                     </a>
+                    {% endif %}
+                    <a href="/?owner={{ owner }}&repo={{ repo }}{% if workflow_id %}&workflow_id={{ workflow_id }}{% endif %}" class="btn btn-secondary">
+                        Run again
+                    </a>
+                    <a href="/" class="btn btn-secondary">Back to home</a>
                 </div>
             </div>
             {% else %}
             <div class="result error">
-                <div class="result-icon">❌</div>
-                <h2>Ошибка</h2>
-                <p class="result-message">{{ error or message or "Неизвестная ошибка" }}</p>
+                <div class="result-icon">✕</div>
+                <h2>Error</h2>
+                <p class="result-message">{{ error or message or "Unknown error occurred" }}</p>
                 
                 {% if owner and repo and workflow_id %}
                 <div class="workflow-info">
                     <div class="info-item">
-                        <strong>Репозиторий:</strong> {{ owner }}/{{ repo }}
+                        <strong>Repository:</strong> {{ owner }}/{{ repo }}
                     </div>
                     <div class="info-item">
                         <strong>Workflow:</strong> {{ workflow_id }}
@@ -86,15 +119,116 @@
                 <div class="action-links">
                     {% if owner and repo and workflow_id %}
                     <a href="/?owner={{ owner }}&repo={{ repo }}&workflow_id={{ workflow_id }}" class="btn btn-secondary">
-                        🔄 Попробовать еще раз
+                        Try again
                     </a>
                     {% endif %}
-                    <a href="/" class="btn btn-secondary">На главную</a>
+                    <a href="/" class="btn btn-secondary">Back to home</a>
                 </div>
             </div>
             {% endif %}
         </main>
     </div>
+
+    {% if success and not run_url and trigger_time %}
+    <script>
+        (function() {
+            const owner = '{{ owner }}';
+            const repo = '{{ repo }}';
+            const workflowId = '{{ workflow_id }}';
+            const triggerTime = '{{ trigger_time }}';
+            const ref = '{{ ref }}';
+            const workflowUrl = '{{ workflow_url }}';
+            
+            let attempts = 0;
+            const maxAttempts = 30; // 30 попыток = ~30 секунд
+            const pollInterval = 1000; // 1 секунда
+            
+            function findRun() {
+                attempts++;
+                
+                const params = new URLSearchParams({
+                    owner: owner,
+                    repo: repo,
+                    workflow_id: workflowId,
+                    trigger_time: triggerTime
+                });
+                if (ref) {
+                    params.append('ref', ref);
+                }
+                
+                fetch(`/api/find-run?${params.toString()}`)
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error(`HTTP error! status: ${response.status}`);
+                        }
+                        return response.json();
+                    })
+                    .then(data => {
+                        if (data.found && data.run_url) {
+                            // Нашли run!
+                            const loader = document.getElementById('run-loader');
+                            const actionLinks = document.getElementById('action-links');
+                            
+                            if (loader) loader.style.display = 'none';
+                            if (actionLinks) {
+                                actionLinks.style.display = 'flex';
+                                
+                                // Создаем или обновляем ссылку
+                                let runLink = document.getElementById('run-link');
+                                if (!runLink) {
+                                    runLink = document.createElement('a');
+                                    runLink.id = 'run-link';
+                                    runLink.href = data.run_url;
+                                    runLink.target = '_blank';
+                                    runLink.className = 'btn btn-primary';
+                                    runLink.style.width = '100%';
+                                    runLink.textContent = 'Open Run';
+                                    actionLinks.appendChild(runLink);
+                                } else {
+                                    runLink.href = data.run_url;
+                                }
+                            }
+                            
+                            // Убеждаемся, что второй ряд кнопок виден
+                            const secondRow = actionLinks ? actionLinks.nextElementSibling : null;
+                            if (secondRow && secondRow.classList.contains('action-links')) {
+                                secondRow.style.display = 'flex';
+                            }
+                        } else if (attempts < maxAttempts) {
+                            // Продолжаем опрос
+                            setTimeout(findRun, pollInterval);
+                        } else {
+                            // Превысили лимит попыток
+                            const loader = document.getElementById('run-loader');
+                            if (loader) {
+                                loader.innerHTML = '<p class="loading-message">Не удалось найти запуск. <a href="' + workflowUrl + '" target="_blank" style="color: #000; text-decoration: underline;">Открыть список workflow</a></p>';
+                            }
+                            
+                            // Показываем кнопки даже если не нашли run
+                            const actionLinks = document.getElementById('action-links');
+                            if (actionLinks) {
+                                actionLinks.style.display = 'flex';
+                            }
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error finding run:', error);
+                        if (attempts < maxAttempts) {
+                            setTimeout(findRun, pollInterval);
+                        } else {
+                            const loader = document.getElementById('run-loader');
+                            if (loader) {
+                                loader.innerHTML = '<p class="loading-message" style="color: #999;">Ошибка при поиске запуска. <a href="' + workflowUrl + '" target="_blank" style="color: #000; text-decoration: underline;">Открыть список workflow</a></p>';
+                            }
+                        }
+                    });
+            }
+            
+            // Начинаем поиск через небольшую задержку
+            setTimeout(findRun, 500);
+        })();
+    </script>
+    {% endif %}
 </body>
 </html>
 
