@@ -28,8 +28,8 @@
 
         {% if user %}
         <main id="workflow-form-container">
-            <form id="workflowForm" action="/workflow/trigger" method="post" class="workflow-form">
-                <div class="form-group">
+                <form id="workflowForm" action="/workflow/trigger" method="post" class="workflow-form">
+                    <div class="form-group">
                     <div class="field-header">
                         <label for="repository">Repository</label>
                     </div>
@@ -47,9 +47,9 @@
                     </div>
                     <input type="hidden" id="owner" name="owner" value="{{ default_owner or '' }}">
                     <input type="hidden" id="repo" name="repo" value="{{ default_repo or '' }}">
-                </div>
-                
-                <div class="form-group">
+                    </div>
+                    
+                    <div class="form-group">
                     <div class="field-header">
                         <label for="branch">Branch</label>
                     </div>
@@ -59,17 +59,11 @@
                                    id="branch_search" 
                                    class="searchable-select-input" 
                                    placeholder="main"
-                                   value="{% if default_ref %}{{ default_ref }}{% elif branches and branches|length > 0 %}main{% else %}main{% endif %}">
+                                   value="{% if default_ref %}{{ default_ref }}{% else %}main{% endif %}">
                             <select id="ref" name="ref" class="searchable-select">
-                                {% if branches and branches|length > 0 %}
-                                    {% for branch in branches %}
-                                        <option value="{{ branch }}" {% if branch == default_ref or (not default_ref and branch == 'main') %}selected{% endif %}>{{ branch }}</option>
-                                    {% endfor %}
-                                {% else %}
-                                    <option value="main" selected>main</option>
-                                    {% if default_ref and default_ref != 'main' %}
-                                    <option value="{{ default_ref }}" selected>{{ default_ref }}</option>
-                                    {% endif %}
+                                <option value="main" {% if not default_ref or default_ref == 'main' %}selected{% endif %}>main</option>
+                                {% if default_ref and default_ref != 'main' %}
+                                <option value="{{ default_ref }}" selected>{{ default_ref }}</option>
                                 {% endif %}
                             </select>
                             <div class="searchable-select-dropdown" id="branch_dropdown"></div>
@@ -79,9 +73,9 @@
                         </div>
                     </div>
                     <div id="branch-error" class="error-state" style="display: none; margin-top: 8px;"></div>
-                </div>
-                
-                <div class="form-group">
+                    </div>
+                    
+                    <div class="form-group">
                     <div class="field-header">
                         <label for="workflow_id">Workflow</label>
                         <span class="optional">Optional</span>
@@ -113,19 +107,20 @@
                         </div>
                     </div>
                     <div id="workflow-error" class="error-state" style="display: none; margin-top: 8px;"></div>
-                </div>
+                    </div>
 
-                {# Динамические поля для workflow inputs #}
+                    {# Динамические поля для workflow inputs #}
                 <div id="workflow-inputs-wrapper" style="display: none;">
                     <div id="workflow-inputs"></div>
                 </div>
                 
                 <div style="display: flex; gap: 12px; align-items: center;">
-                    <button type="submit" class="btn btn-primary" style="flex: 1;">Run workflow</button>
+                    <button type="submit" id="runButton" class="btn btn-primary" style="flex: 1;" disabled>Run workflow</button>
                     <button type="button" id="run-link-btn" class="btn btn-secondary" style="flex: 0 0 auto; opacity: 0.6; font-size: 13px; padding: 8px 16px; border-color: #d1d5db; background: #f9fafb; color: #6b7280;">Run link</button>
                     <button type="button" id="form-link-btn" class="btn btn-secondary" style="flex: 0 0 auto; opacity: 0.6; font-size: 13px; padding: 8px 16px; border-color: #d1d5db; background: #f9fafb; color: #6b7280;">Form link</button>
                 </div>
-            </form>
+                <div id="permission-message" style="margin-top: 10px; color: #6b7280; font-size: 0.9em;"></div>
+                </form>
             
             <footer class="page-footer">
                 <div class="footer-content">
@@ -138,12 +133,12 @@
                         <span class="user-login">{{ user.login }}</span>
                     </div>
                     <a href="/auth/logout" class="btn btn-secondary btn-small">Выйти</a>
-                </div>
+            </div>
             </footer>
-    </main>
-    {% endif %}
+        </main>
+        {% endif %}
     </div>
-
+    
     <script>
         // Функция для получения workflow inputs из URL параметров
         function getWorkflowInputsFromUrl() {
@@ -260,6 +255,21 @@
                 // Сохраняем текущее значение при фокусе
                 initialValue = searchInput.value;
                 isFirstInput = false;
+                
+                // Для поля выбора ветки - загружаем ветки при первом фокусе, если они еще не загружены
+                if (selectId === 'ref') {
+                    const ownerInput = document.getElementById('owner');
+                    const repoInput = document.getElementById('repo');
+                    if (ownerInput && repoInput) {
+                        const owner = ownerInput.value.trim();
+                        const repo = repoInput.value.trim();
+                        if (owner && repo && select.options.length <= 2) {
+                            // Загружаем ветки только если их еще нет (только main и default_ref)
+                            loadBranches(owner, repo);
+                        }
+                    }
+                }
+                
                 // При фокусе показываем все опции (не фильтруем)
                 updateDropdown('');
                 dropdown.classList.add('show');
@@ -282,7 +292,7 @@
                         updateDropdown(currentValue);
                         isFirstInput = false;
                     }
-                    dropdown.classList.add('show');
+                dropdown.classList.add('show');
                     
                     // Если пользователь вводит текст, который точно совпадает с опцией - выбираем её
                     const searchTerm = searchInput.value.trim();
@@ -486,9 +496,55 @@
             }
         }
         
+        // Функция для загрузки только branches
+        async function loadBranches(owner, repo) {
+            if (!owner || !repo) return;
+            
+            const branchLoader = document.getElementById('branch-loader');
+            const branchError = document.getElementById('branch-error');
+            
+            // Показываем спиннер
+            if (branchLoader) branchLoader.style.display = 'flex';
+            if (branchError) branchError.style.display = 'none';
+            
+            try {
+                const branchesUrl = `/api/branches?owner=${encodeURIComponent(owner)}&repo=${encodeURIComponent(repo)}`;
+                const branchesResponse = await fetch(branchesUrl);
+                
+                if (branchesResponse.ok) {
+                    const branchesData = await branchesResponse.json();
+                    updateSelect('ref', branchesData.branches, 'main');
+                    initSearchableSelect('branch_search', 'ref', 'branch_dropdown');
+                    if (branchError) branchError.style.display = 'none';
+                } else {
+                    // Показываем ошибку для branches
+                    let errorMessage = 'Failed to load branches';
+                    try {
+                        const errorData = await branchesResponse.json();
+                        errorMessage = errorData.detail || errorMessage;
+                    } catch (e) {
+                        errorMessage = `Failed to load branches: ${branchesResponse.status} ${branchesResponse.statusText}`;
+                    }
+                    if (branchError) {
+                        branchError.textContent = errorMessage;
+                        branchError.style.display = 'block';
+                    }
+                    console.error('Failed to load branches:', errorMessage);
+                }
+            } catch (error) {
+                console.error('Failed to load branches:', error);
+                if (branchError) {
+                    branchError.textContent = `Error: ${error.message}`;
+                    branchError.style.display = 'block';
+                }
+            } finally {
+                if (branchLoader) branchLoader.style.display = 'none';
+            }
+        }
+        
         // Функция для загрузки только workflows
         async function loadWorkflows(owner, repo) {
-            if (!owner || !repo) return;
+            if (!owner || !repo) return Promise.resolve();
             
             const workflowLoader = document.getElementById('workflow-loader');
             const workflowError = document.getElementById('workflow-error');
@@ -529,99 +585,6 @@
                     workflowError.style.display = 'block';
                 }
             } finally {
-                if (workflowLoader) workflowLoader.style.display = 'none';
-            }
-        }
-        
-        // Функция для загрузки branches и workflows
-        async function loadBranchesAndWorkflows(owner, repo) {
-            if (!owner || !repo) return;
-            
-            const branchLoader = document.getElementById('branch-loader');
-            const workflowLoader = document.getElementById('workflow-loader');
-            
-            // Показываем спиннеры
-            if (branchLoader) branchLoader.style.display = 'flex';
-            if (workflowLoader) workflowLoader.style.display = 'flex';
-            
-            // Скрываем предыдущие ошибки
-            const branchError = document.getElementById('branch-error');
-            const workflowError = document.getElementById('workflow-error');
-            if (branchError) branchError.style.display = 'none';
-            if (workflowError) workflowError.style.display = 'none';
-            
-            try {
-                // Формируем URL для branches (без env параметра, фильтрация из конфига)
-                const branchesUrl = `/api/branches?owner=${encodeURIComponent(owner)}&repo=${encodeURIComponent(repo)}`;
-                
-                const [branchesResponse, workflowsResponse] = await Promise.all([
-                    fetch(branchesUrl),
-                    fetch(`/api/workflows?owner=${encodeURIComponent(owner)}&repo=${encodeURIComponent(repo)}`)
-                ]);
-                
-                // Обработка branches
-                if (branchesResponse.ok) {
-                    const branchesData = await branchesResponse.json();
-                    updateSelect('ref', branchesData.branches, 'main');
-                    initSearchableSelect('branch_search', 'ref', 'branch_dropdown');
-                    if (branchError) branchError.style.display = 'none';
-                } else {
-                    // Показываем ошибку для branches
-                    let errorMessage = 'Failed to load branches';
-                    try {
-                        const errorData = await branchesResponse.json();
-                        errorMessage = errorData.detail || errorMessage;
-                    } catch (e) {
-                        errorMessage = `Failed to load branches: ${branchesResponse.status} ${branchesResponse.statusText}`;
-                    }
-                    if (branchError) {
-                        branchError.textContent = errorMessage;
-                        branchError.style.display = 'block';
-                    }
-                    console.error('Failed to load branches:', errorMessage);
-                }
-                
-                // Обработка workflows - загружаем только если branch уже выбран
-                // Иначе загрузим после выбора branch
-                const refSelect = document.getElementById('ref');
-                if (refSelect && refSelect.value) {
-                    if (workflowsResponse.ok) {
-                        const workflowsData = await workflowsResponse.json();
-                        updateSelect('workflow_id', workflowsData.workflows.map(w => ({id: w.id, name: w.name})), null);
-                        initSearchableSelect('workflow_search', 'workflow_id', 'workflow_dropdown');
-                        // Загружаем inputs для выбранного workflow
-                        loadWorkflowInputs();
-                        if (workflowError) workflowError.style.display = 'none';
-                    } else {
-                        // Показываем ошибку для workflows
-                        let errorMessage = 'Failed to load workflows';
-                        try {
-                            const errorData = await workflowsResponse.json();
-                            errorMessage = errorData.detail || errorMessage;
-                        } catch (e) {
-                            errorMessage = `Failed to load workflows: ${workflowsResponse.status} ${workflowsResponse.statusText}`;
-                        }
-                        if (workflowError) {
-                            workflowError.textContent = errorMessage;
-                            workflowError.style.display = 'block';
-                        }
-                        console.error('Failed to load workflows:', errorMessage);
-                    }
-                }
-            } catch (error) {
-                console.error('Failed to load branches/workflows:', error);
-                // Показываем общую ошибку
-                if (branchError) {
-                    branchError.textContent = `Error: ${error.message}`;
-                    branchError.style.display = 'block';
-                }
-                if (workflowError) {
-                    workflowError.textContent = `Error: ${error.message}`;
-                    workflowError.style.display = 'block';
-                }
-            } finally {
-                // Скрываем спиннеры
-                if (branchLoader) branchLoader.style.display = 'none';
                 if (workflowLoader) workflowLoader.style.display = 'none';
             }
         }
@@ -684,12 +647,25 @@
                     ownerInput.value = owner;
                     repoInput.value = repo;
                     
-                    clearTimeout(loadTimeout);
-                    loadTimeout = setTimeout(function() {
-                        if (owner && repo) {
-                            loadBranchesAndWorkflows(owner, repo);
-                        }
-                    }, 500);
+                clearTimeout(loadTimeout);
+                loadTimeout = setTimeout(function() {
+                    if (owner && repo) {
+                        // Проверяем права сразу при изменении репозитория
+                        checkUserPermissions();
+                        // Загружаем workflows сразу при изменении репозитория
+                        loadWorkflows(owner, repo).then(function() {
+                            // Проверяем права еще раз после загрузки workflows
+                            checkUserPermissions();
+                        });
+                        // Загружаем ветки с задержкой, чтобы не блокировать UI
+                        setTimeout(function() {
+                            loadBranches(owner, repo);
+                        }, 1500);
+                    } else {
+                        // Если owner или repo пустые, отключаем кнопку
+                        checkUserPermissions();
+                    }
+                }, 500);
                 }
             }
             
@@ -699,8 +675,10 @@
             // Инициализация при загрузке
             if (ownerInput.value && repoInput.value) {
                 repositoryInput.value = `${ownerInput.value}/${repoInput.value}`;
+                // Загружаем только workflows при загрузке страницы
+                // Branches будут загружены позже (lazy loading)
                 if (ownerInput.value && repoInput.value) {
-                    loadBranchesAndWorkflows(ownerInput.value, repoInput.value);
+                    loadWorkflows(ownerInput.value, repoInput.value);
                 }
             }
         }
@@ -896,6 +874,67 @@
             });
         }
         
+        // Function to check user permissions
+        async function checkUserPermissions() {
+            const ownerInput = document.getElementById('owner');
+            const repoInput = document.getElementById('repo');
+            const runButton = document.getElementById('runButton');
+            const permissionMessage = document.getElementById('permission-message');
+            
+            if (!ownerInput || !repoInput || !runButton || !permissionMessage) return;
+            
+            const owner = ownerInput.value.trim();
+            const repo = repoInput.value.trim();
+            
+            // If owner or repo are empty, disable button and show message
+            if (!owner || !repo) {
+                runButton.disabled = true;
+                permissionMessage.textContent = 'Please enter repository owner and name';
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/check-permissions?owner=${encodeURIComponent(owner)}&repo=${encodeURIComponent(repo)}`);
+                
+                if (response.status === 401) {
+                    // Not authenticated
+                    runButton.disabled = true;
+                    permissionMessage.textContent = 'Please sign in with GitHub to run workflows';
+                    return;
+                }
+                
+                if (!response.ok) {
+                    throw new Error('Failed to check permissions');
+                }
+                
+                const data = await response.json();
+                
+                if (data.can_trigger) {
+                    runButton.disabled = false;
+                    permissionMessage.textContent = '';
+                    if (data.user_role === 'contributor') {
+                        console.log(`User ${data.username} is a contributor to ${owner}/${repo}`);
+                    } else if (data.user_role === 'collaborator') {
+                        console.log(`User ${data.username} is a collaborator of ${owner}/${repo}`);
+                    }
+                } else {
+                    runButton.disabled = true;
+                    // Show appropriate message based on configuration
+                    if (data.allow_contributors_only) {
+                        permissionMessage.textContent = `You are not a contributor of ${owner}/${repo}. Only contributors can trigger workflows.`;
+                    } else {
+                        permissionMessage.textContent = `You are not a contributor or collaborator of ${owner}/${repo}`;
+                    }
+                    console.log(`User ${data.username} (${data.user_role}) does NOT have permission to trigger workflows in ${owner}/${repo}`);
+                }
+            } catch (error) {
+                console.error('Error checking permissions:', error);
+                // In case of error, allow attempt (check will be on server)
+                runButton.disabled = false;
+                permissionMessage.textContent = '';
+            }
+        }
+        
         // Инициализация при загрузке
         function initAll() {
             initSearchableSelect('workflow_search', 'workflow_id', 'workflow_dropdown');
@@ -905,9 +944,56 @@
             setupRunLinkButton();
             setupFormLinkButton();
             
-            // Если workflow_id уже выбран и есть owner/repo, загружаем workflow inputs
+            // Setup permission checking on owner/repo changes
             const ownerInput = document.getElementById('owner');
             const repoInput = document.getElementById('repo');
+            
+            // Загружаем ветки после полной загрузки страницы (lazy loading)
+            // Используем requestIdleCallback для загрузки в свободное время браузера
+            if (ownerInput && repoInput) {
+                const owner = ownerInput.value.trim();
+                const repo = repoInput.value.trim();
+                
+                if (owner && repo) {
+                    // Загружаем ветки после небольшой задержки, когда страница полностью загрузилась
+                    // Это позволяет странице отобразиться быстрее
+                    if (window.requestIdleCallback) {
+                        requestIdleCallback(function() {
+                            setTimeout(function() {
+                                loadBranches(owner, repo);
+                            }, 1000); // Задержка 1 секунда после загрузки страницы
+                        }, { timeout: 3000 }); // Максимальная задержка 3 секунды
+                    } else {
+                        // Fallback для браузеров без requestIdleCallback
+                        setTimeout(function() {
+                            loadBranches(owner, repo);
+                        }, 2000); // Задержка 2 секунды
+                    }
+                }
+            }
+            let permissionCheckTimeout;
+            
+            function handleOwnerRepoChange() {
+                clearTimeout(permissionCheckTimeout);
+                permissionCheckTimeout = setTimeout(checkUserPermissions, 500);
+            }
+            
+            if (ownerInput) {
+                ownerInput.addEventListener('input', handleOwnerRepoChange);
+                ownerInput.addEventListener('blur', handleOwnerRepoChange);
+                ownerInput.addEventListener('change', checkUserPermissions);
+            }
+            
+            if (repoInput) {
+                repoInput.addEventListener('input', handleOwnerRepoChange);
+                repoInput.addEventListener('blur', handleOwnerRepoChange);
+                repoInput.addEventListener('change', checkUserPermissions);
+            }
+            
+            // Always check permissions on page load
+            checkUserPermissions();
+            
+            // Если workflow_id уже выбран и есть owner/repo, загружаем workflow inputs
             const workflowIdSelect = document.getElementById('workflow_id');
             
             if (ownerInput && repoInput && workflowIdSelect) {

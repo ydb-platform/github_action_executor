@@ -5,19 +5,23 @@ import os
 import logging
 import re
 import httpx
+import asyncio
 from typing import List, Optional
 from backend.services.github_app import get_installation_token, load_private_key
 from backend.services.cache import get as cache_get, set as cache_set
 
 logger = logging.getLogger(__name__)
 
-# Cache TTL in seconds (5 minutes)
-CACHE_TTL = 300
+# Cache TTL in seconds (30 minutes - branches don't change frequently)
+CACHE_TTL = 1800
+
+# Maximum number of parallel requests to GitHub API
+MAX_PARALLEL_REQUESTS = 10
 
 
 async def _fetch_all_branches_from_api(owner: str, repo: str) -> list:
     """
-    Fetch all branches from GitHub API (internal function, not cached)
+    Fetch all branches from GitHub API using parallel requests (internal function, not cached)
     
     Args:
         owner: Repository owner
@@ -43,34 +47,89 @@ async def _fetch_all_branches_from_api(owner: str, repo: str) -> list:
         "Accept": "application/vnd.github.v3+json"
     }
     
-    async with httpx.AsyncClient() as client:
-        # Get all branches using pagination
+    async with httpx.AsyncClient(timeout=30.0) as client:
         branches_url = f"https://api.github.com/repos/{owner}/{repo}/branches"
-        all_branch_names = []
-        page = 1
-        per_page = 100  # GitHub max per page
+        per_page = 100
         
-        while True:
-            response = await client.get(
-                branches_url,
-                headers=headers,
-                params={"per_page": per_page, "page": page}
-            )
-            response.raise_for_status()
+        # Fetch first page to determine if there are more pages
+        first_response = await client.get(
+            branches_url,
+            headers=headers,
+            params={"per_page": per_page, "page": 1}
+        )
+        first_response.raise_for_status()
+        
+        first_page_data = first_response.json()
+        if not first_page_data:
+            return []
+        
+        all_branch_names = [branch["name"] for branch in first_page_data]
+        
+        # If first page is not full, we're done
+        if len(first_page_data) < per_page:
+            return all_branch_names
+        
+        # Parse Link header to find total number of pages
+        link_header = first_response.headers.get("Link", "")
+        total_pages = None
+        
+        if link_header:
+            # Extract last page number from Link header
+            # Format: <url?page=2>; rel="next", <url?page=19>; rel="last"
+            import re as regex_module
+            last_match = regex_module.search(r'page=(\d+)>; rel="last"', link_header)
+            if last_match:
+                total_pages = int(last_match.group(1))
+        
+        # If we know total pages, fetch all remaining pages in parallel
+        if total_pages and total_pages > 1:
+            semaphore = asyncio.Semaphore(MAX_PARALLEL_REQUESTS)
             
-            branches_data = response.json()
+            async def fetch_page(page_num: int) -> List[str]:
+                """Fetch a single page of branches"""
+                async with semaphore:
+                    response = await client.get(
+                        branches_url,
+                        headers=headers,
+                        params={"per_page": per_page, "page": page_num}
+                    )
+                    response.raise_for_status()
+                    branches_data = response.json()
+                    return [branch["name"] for branch in branches_data] if branches_data else []
             
-            if not branches_data:
-                break
+            # Fetch all remaining pages (2 to total_pages) in parallel
+            remaining_pages = list(range(2, total_pages + 1))
+            tasks = [fetch_page(page) for page in remaining_pages]
+            results = await asyncio.gather(*tasks, return_exceptions=True)
             
-            page_branch_names = [branch["name"] for branch in branches_data]
-            all_branch_names.extend(page_branch_names)
-            
-            # If we got less than per_page, we've reached the end
-            if len(branches_data) < per_page:
-                break
-            
-            page += 1
+            # Combine results
+            for result in results:
+                if isinstance(result, Exception):
+                    logger.warning(f"Error fetching page: {str(result)}")
+                elif result:
+                    all_branch_names.extend(result)
+        else:
+            # Fallback: sequential fetching if we can't determine total pages
+            # This should rarely happen, but keep it as fallback
+            page = 2
+            while True:
+                response = await client.get(
+                    branches_url,
+                    headers=headers,
+                    params={"per_page": per_page, "page": page}
+                )
+                response.raise_for_status()
+                
+                branches_data = response.json()
+                if not branches_data:
+                    break
+                
+                all_branch_names.extend([branch["name"] for branch in branches_data])
+                
+                if len(branches_data) < per_page:
+                    break
+                
+                page += 1
         
         return all_branch_names
 
@@ -99,7 +158,7 @@ async def get_branches(owner: str, repo: str, env_patterns: Optional[List[str]] 
         # Not in cache, fetch from API
         try:
             all_branch_names = await _fetch_all_branches_from_api(owner, repo)
-            # Cache all branches for 5 minutes
+            # Cache all branches for 30 minutes
             cache_set(cache_key, all_branch_names, CACHE_TTL)
             logger.info(f"Fetched {len(all_branch_names)} branches from API for {owner}/{repo}")
         except httpx.HTTPStatusError as e:

@@ -86,34 +86,17 @@ async def root(
         if key not in excluded_params and value:
             workflow_inputs[key] = value
     
-    # Try to load branches and workflows if owner and repo are provided
-    branches = []
+    # Try to load workflows if owner and repo are provided
+    # Branches will be loaded lazily on the frontend after page load
     workflows_list = []
     
-    # Используем паттерны из конфига для фильтрации веток
-    branch_filter_patterns = config.BRANCH_FILTER_PATTERNS if config.BRANCH_FILTER_PATTERNS else None
     if default_owner and default_repo:
         try:
-            from backend.services.branches import get_branches
             from backend.services.workflows import get_workflows
-            import asyncio
-            
-            branches_task = get_branches(default_owner, default_repo, env_patterns=branch_filter_patterns)
-            workflows_task = get_workflows(default_owner, default_repo)
-            branches, workflows_list = await asyncio.gather(
-                branches_task,
-                workflows_task,
-                return_exceptions=True
-            )
-            
-            if isinstance(branches, Exception):
-                logger.warning(f"Failed to get branches for main page: {str(branches)}")
-                branches = []
-            if isinstance(workflows_list, Exception):
-                logger.warning(f"Failed to get workflows for main page: {str(workflows_list)}")
-                workflows_list = []
+            workflows_list = await get_workflows(default_owner, default_repo)
         except Exception as e:
-            logger.warning(f"Failed to load branches/workflows for main page: {str(e)}")
+            logger.warning(f"Failed to load workflows for main page: {str(e)}")
+            workflows_list = []
     
     return templates.TemplateResponse(
         "index.html",
@@ -125,7 +108,6 @@ async def root(
             "default_workflow_id": default_workflow_id,
             "default_ref": default_ref,
             "workflow_inputs": workflow_inputs,  # Параметры для предзаполнения workflow inputs
-            "branches": branches,
             "workflows": workflows_list,
             "auto_open_run": config.AUTO_OPEN_RUN
         }

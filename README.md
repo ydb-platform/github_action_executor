@@ -102,6 +102,105 @@ uvicorn app:app --host 0.0.0.0 --port 8000 --reload
 
 Приложение будет доступно по адресу: http://localhost:8000
 
+### Запуск в фоне (после отключения от SSH)
+
+#### Вариант 1: Использование скриптов start.sh/stop.sh (рекомендуется)
+
+```bash
+# Запуск в фоне
+./start.sh
+
+# Проверка логов
+tail -f nohup.out
+
+# Остановка
+./stop.sh
+```
+
+Скрипт автоматически:
+- Активирует виртуальное окружение
+- Запускает приложение с `nohup` (не завершится при отключении от SSH)
+- Сохраняет PID процесса в файл `app.pid`
+- Записывает логи в `nohup.out`
+
+#### Вариант 2: Ручной запуск с nohup
+
+```bash
+# Активируйте виртуальное окружение
+source venv/bin/activate
+
+# Запустите с nohup
+nohup uvicorn app:app --host 0.0.0.0 --port 8000 > nohup.out 2>&1 &
+
+# Сохраните PID (выведется после запуска)
+echo $! > app.pid
+
+# Для остановки
+kill $(cat app.pid)
+```
+
+#### Вариант 3: Использование systemd (для production)
+
+1. Отредактируйте service файл и замените плейсхолдеры:
+```bash
+# Откройте файл для редактирования
+nano github-action-executor.service
+
+# Замените:
+# - YOUR_USERNAME на ваше имя пользователя
+# - /path/to/github_action_executor на полный путь к директории проекта
+```
+
+2. Скопируйте service файл:
+```bash
+sudo cp github-action-executor.service /etc/systemd/system/
+```
+
+3. Запустите сервис:
+```bash
+# Перезагрузите systemd
+sudo systemctl daemon-reload
+
+# Запустите сервис
+sudo systemctl start github-action-executor
+
+# Включите автозапуск при перезагрузке
+sudo systemctl enable github-action-executor
+
+# Проверьте статус
+sudo systemctl status github-action-executor
+
+# Просмотр логов
+sudo journalctl -u github-action-executor -f
+
+# Остановка
+sudo systemctl stop github-action-executor
+```
+
+#### Вариант 4: Использование screen или tmux
+
+```bash
+# Установите screen (если не установлен)
+sudo apt-get install screen  # для Ubuntu/Debian
+# или
+sudo yum install screen      # для CentOS/RHEL
+
+# Запустите screen сессию
+screen -S gax
+
+# Внутри screen запустите приложение
+source venv/bin/activate
+uvicorn app:app --host 0.0.0.0 --port 8000
+
+# Отключитесь от screen: нажмите Ctrl+A, затем D
+
+# Вернуться к сессии
+screen -r gax
+
+# Список всех сессий
+screen -ls
+```
+
 ## Использование Docker
 
 ```bash
@@ -155,6 +254,17 @@ http://your-server/workflow/trigger?owner=owner_name&repo=my-repo&workflow_id=ci
 1. Если не авторизован → редирект на GitHub OAuth
 2. После авторизации → сразу запускается workflow
 3. Показывается страница с результатом
+
+### Быстрый запуск тестов (Badges)
+
+Таблица с быстрыми ссылками для запуска тестов с разными build presets:
+
+| Build Type | Run Tests | Run Tests Fast |
+|------------|-----------|----------------|
+| **RelWithDebInfo** | [![Run Tests](https://img.shields.io/badge/▶_Run_Tests-RelWithDebInfo-4caf50)](http://51.250.33.238:8000/?owner=naspirato&repo=ydb&workflow_id=run_tests.yml&test_targets=ydb/tests/&test_type=pytest&test_size=large&build_preset=relwithdebinfo) | [![Run Tests](https://img.shields.io/badge/▶_Run_Tests_fast-RelWithDebInfo-4caf50)](http://51.250.33.238:8000/workflow/trigger?owner=naspirato&repo=ydb&workflow_id=acceptance_run.yml&ref=main&build_preset=relwithdebinfo&runner_label=auto-provisioned) |
+| **MSan** | [![Run Tests](https://img.shields.io/badge/▶_Run_Tests-MSan-4caf50)](http://51.250.33.238:8000/?owner=naspirato&repo=ydb&workflow_id=run_tests.yml&test_targets=ydb/tests/&test_type=pytest&test_size=large&build_preset=release-msan) | [![Run Tests](https://img.shields.io/badge/▶_Run_Tests_fast-MSan-4caf50)](http://51.250.33.238:8000/workflow/trigger?owner=naspirato&repo=ydb&workflow_id=acceptance_run.yml&ref=main&build_preset=release-msan&runner_label=auto-provisioned) |
+| **ASan** | [![Run Tests](https://img.shields.io/badge/▶_Run_Tests-ASan-4caf50)](http://51.250.33.238:8000/?owner=naspirato&repo=ydb&workflow_id=run_tests.yml&test_targets=ydb/tests/&test_type=pytest&test_size=large&build_preset=release-asan) | [![Run Tests](https://img.shields.io/badge/▶_Run_Tests_fast-ASan-4caf50)](http://51.250.33.238:8000/workflow/trigger?owner=naspirato&repo=ydb&workflow_id=acceptance_run.yml&ref=main&build_preset=release-asan&runner_label=auto-provisioned) |
+| **TSan** | [![Run Tests](https://img.shields.io/badge/▶_Run_Tests-TSan-4caf50)](http://51.250.33.238:8000/?owner=naspirato&repo=ydb&workflow_id=run_tests.yml&test_targets=ydb/tests/&test_type=pytest&test_size=large&build_preset=release-tsan) | [![Run Tests](https://img.shields.io/badge/▶_Run_Tests_fast-TSan-4caf50)](http://51.250.33.238:8000/workflow/trigger?owner=naspirato&repo=ydb&workflow_id=acceptance_run.yml&ref=main&build_preset=release-tsan&runner_label=auto-provisioned) |
 
 ### Через curl (с OAuth сессией)
 
