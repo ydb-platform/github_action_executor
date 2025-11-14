@@ -1,6 +1,6 @@
 """
 GitHub Action Executor - Main application entry point
-Web interface for triggering GitHub Actions workflows with contributor verification
+Web interface for triggering GitHub Actions workflows with collaborator verification
 """
 import os
 import logging

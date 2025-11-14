@@ -7,7 +7,7 @@ from fastapi import APIRouter, Request, HTTPException, Depends, Query
 from pydantic import BaseModel
 from typing import Optional, List
 
-from backend.services.permissions import is_contributor, check_repository_access
+from backend.services.permissions import check_repository_access
 from backend.services.workflow import trigger_workflow, find_workflow_run
 from backend.services.branches import get_branches
 from backend.services.workflows import get_workflows
@@ -50,35 +50,17 @@ async def api_trigger_workflow(
     
     # Check permissions if enabled in config
     if config.CHECK_PERMISSIONS:
-        is_contrib = await is_contributor(
-            request_data.owner,
-            request_data.repo,
-            username,
-            access_token
-        )
         has_access = await check_repository_access(
             request_data.owner,
             request_data.repo,
             access_token
         )
         
-        # Determine if user can trigger based on config
-        if config.ALLOW_CONTRIBUTORS_ONLY:
-            # Only allow contributors (users who made commits)
-            can_trigger = is_contrib
-            if not can_trigger:
-                raise HTTPException(
-                    status_code=403,
-                    detail=f"User {username} is not a contributor of {request_data.owner}/{request_data.repo}. Only contributors can trigger workflows."
-                )
-        else:
-            # Allow both contributors and collaborators
-            can_trigger = is_contrib or has_access
-            if not can_trigger:
-                raise HTTPException(
-                    status_code=403,
-                    detail=f"User {username} is not a contributor or collaborator of {request_data.owner}/{request_data.repo}"
-                )
+        if not has_access:
+            raise HTTPException(
+                status_code=403,
+                detail=f"User {username} is not a collaborator of {request_data.owner}/{request_data.repo}. Only collaborators can trigger workflows."
+            )
     
     # Prepare inputs
     inputs = request_data.inputs or {}
@@ -286,7 +268,7 @@ async def api_check_permissions(
     request: Request = None
 ):
     """
-    API endpoint to check if current user is a contributor or has access to repository
+    API endpoint to check if current user is a collaborator (has access to repository)
     """
     user = request.session.get("user")
     access_token = request.session.get("access_token")
@@ -301,7 +283,6 @@ async def api_check_permissions(
     if not config.CHECK_PERMISSIONS:
         logger.info(f"Permission check disabled in config, allowing for user {username}")
         return {
-            "is_contributor": True,  # Not checked, but return True for UI
             "has_access": True,
             "can_trigger": True,
             "username": username,
@@ -311,41 +292,25 @@ async def api_check_permissions(
         }
     
     try:
-        is_contrib = await is_contributor(owner, repo, username, access_token)
         has_access = await check_repository_access(owner, repo, access_token)
         
-        # Determine if user can trigger based on config
-        if config.ALLOW_CONTRIBUTORS_ONLY:
-            # Only allow contributors (users who made commits)
-            can_trigger = is_contrib
-            if is_contrib:
-                user_role = "contributor"
-            elif has_access:
-                user_role = "collaborator (but not contributor)"
-            else:
-                user_role = "no access"
+        if has_access:
+            user_role = "collaborator"
+            can_trigger = True
         else:
-            # Allow both contributors and collaborators
-            can_trigger = is_contrib or has_access
-            if is_contrib:
-                user_role = "contributor"
-            elif has_access:
-                user_role = "collaborator"
-            else:
-                user_role = "no access"
+            user_role = "no access"
+            can_trigger = False
         
-        logger.info(f"Permission check result for user {username} in {owner}/{repo}: is_contributor={is_contrib}, has_access={has_access}, role={user_role}, can_trigger={can_trigger} (ALLOW_CONTRIBUTORS_ONLY={config.ALLOW_CONTRIBUTORS_ONLY})")
+        logger.info(f"Permission check result for user {username} in {owner}/{repo}: has_access={has_access}, role={user_role}, can_trigger={can_trigger}")
         
         return {
-            "is_contributor": is_contrib,
             "has_access": has_access,
             "can_trigger": can_trigger,
             "user_role": user_role,
             "username": username,
             "owner": owner,
             "repo": repo,
-            "check_enabled": True,
-            "allow_contributors_only": config.ALLOW_CONTRIBUTORS_ONLY
+            "check_enabled": True
         }
     except Exception as e:
         logger.error(f"Error checking permissions: {str(e)}", exc_info=True)

@@ -960,9 +960,7 @@
                     runButton.style.cursor = 'pointer';
                     permissionMessage.textContent = '';
                     permissionMessage.style.display = 'none';
-                    if (data.user_role === 'contributor') {
-                        console.log(`User ${data.username} is a contributor to ${owner}/${repo}`);
-                    } else if (data.user_role === 'collaborator') {
+                    if (data.user_role === 'collaborator') {
                         console.log(`User ${data.username} is a collaborator of ${owner}/${repo}`);
                     }
                 } else {
@@ -976,12 +974,7 @@
                     if (!hasWorkflowDispatch) {
                         permissionMessage.textContent = 'This workflow is not configured for manual trigger (workflow_dispatch)';
                     } else {
-                        // Show appropriate message based on configuration
-                        if (data.allow_contributors_only) {
-                            permissionMessage.textContent = `You are not a contributor of ${owner}/${repo}. Only contributors can trigger workflows.`;
-                        } else {
-                            permissionMessage.textContent = `You are not a contributor or collaborator of ${owner}/${repo}`;
-                        }
+                        permissionMessage.textContent = `You are not a collaborator of ${owner}/${repo}. Only collaborators can trigger workflows.`;
                         console.log(`User ${data.username} (${data.user_role}) does NOT have permission to trigger workflows in ${owner}/${repo}`);
                     }
                 }
