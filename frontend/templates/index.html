@@ -504,13 +504,21 @@
         // Функция для копирования ссылки на запуск
         function setupCopyRunButton() {
             const copyBtn = document.getElementById('copy-run-btn');
-            if (!copyBtn) return;
+            if (!copyBtn) {
+                console.warn('Copy run button not found');
+                return;
+            }
             
-            copyBtn.addEventListener('click', function() {
+            copyBtn.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                
                 const ownerInput = document.getElementById('owner');
                 const repoInput = document.getElementById('repo');
                 const workflowIdSelect = document.getElementById('workflow_id');
                 const refSelect = document.getElementById('ref');
+                
+                console.log('Copy button clicked', { ownerInput, repoInput, workflowIdSelect, refSelect });
                 
                 if (!ownerInput || !repoInput || !workflowIdSelect || !refSelect) {
                     alert('Please fill in repository, workflow and branch');
@@ -521,6 +529,8 @@
                 const repo = repoInput.value.trim();
                 const workflowId = workflowIdSelect.value.trim();
                 const ref = refSelect.value.trim();
+                
+                console.log('Values:', { owner, repo, workflowId, ref });
                 
                 if (!owner || !repo || !workflowId || !ref) {
                     alert('Please fill in repository, workflow and branch');
@@ -550,8 +560,11 @@
                 
                 const triggerUrl = `${baseUrl}/workflow/trigger?${params.toString()}`;
                 
+                console.log('Generated URL:', triggerUrl);
+                
                 // Копируем в буфер обмена
-                navigator.clipboard.writeText(triggerUrl).then(function() {
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    navigator.clipboard.writeText(triggerUrl).then(function() {
                     // Показываем уведомление
                     const originalText = copyBtn.textContent;
                     const originalOpacity = copyBtn.style.opacity;
@@ -568,11 +581,42 @@
                         copyBtn.style.opacity = originalOpacity || '0.6';
                         copyBtn.style.borderColor = '#d1d5db';
                     }, 2000);
-                }).catch(function(err) {
-                    console.error('Failed to copy:', err);
-                    // Fallback: показываем URL в prompt
-                    prompt('Copy this URL:', triggerUrl);
-                });
+                    }).catch(function(err) {
+                        console.error('Failed to copy:', err);
+                        // Fallback: показываем URL в prompt
+                        prompt('Copy this URL:', triggerUrl);
+                    });
+                } else {
+                    // Fallback для старых браузеров
+                    const textArea = document.createElement('textarea');
+                    textArea.value = triggerUrl;
+                    textArea.style.position = 'fixed';
+                    textArea.style.left = '-999999px';
+                    document.body.appendChild(textArea);
+                    textArea.select();
+                    try {
+                        document.execCommand('copy');
+                        const originalText = copyBtn.textContent;
+                        const originalOpacity = copyBtn.style.opacity;
+                        copyBtn.textContent = 'Copied!';
+                        copyBtn.style.background = '#10b981';
+                        copyBtn.style.color = '#fff';
+                        copyBtn.style.opacity = '1';
+                        copyBtn.style.borderColor = '#10b981';
+                        
+                        setTimeout(function() {
+                            copyBtn.textContent = originalText;
+                            copyBtn.style.background = '#f9fafb';
+                            copyBtn.style.color = '#6b7280';
+                            copyBtn.style.opacity = originalOpacity || '0.6';
+                            copyBtn.style.borderColor = '#d1d5db';
+                        }, 2000);
+                    } catch (err) {
+                        console.error('Failed to copy:', err);
+                        prompt('Copy this URL:', triggerUrl);
+                    }
+                    document.body.removeChild(textArea);
+                }
             });
         }
         

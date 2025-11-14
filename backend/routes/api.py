@@ -211,14 +211,23 @@ async def api_find_run(
         run_data = await find_workflow_run(owner, repo, workflow_id, trigger_dt, ref=ref)
         
         if run_data:
+            run_id = run_data.get("id")
+            # html_url может отсутствовать в некоторых случаях, формируем его вручную если нужно
+            run_url = run_data.get("html_url")
+            if not run_url and run_id:
+                # Формируем URL вручную: https://github.com/{owner}/{repo}/actions/runs/{run_id}
+                run_url = f"https://github.com/{owner}/{repo}/actions/runs/{run_id}"
+            
+            logger.info(f"Found workflow run: id={run_id}, url={run_url}")
             return {
                 "found": True,
-                "run_id": run_data.get("id"),
-                "run_url": run_data.get("html_url"),
+                "run_id": run_id,
+                "run_url": run_url,
                 "status": run_data.get("status"),
                 "conclusion": run_data.get("conclusion")
             }
         else:
+            logger.debug(f"Workflow run not found for {owner}/{repo}/{workflow_id} triggered at {trigger_time}")
             return {"found": False}
     except httpx.HTTPStatusError as e:
         status_code = e.response.status_code

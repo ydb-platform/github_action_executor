@@ -4,8 +4,11 @@ Service for triggering GitHub Actions workflows
 import os
 import asyncio
 import httpx
+import logging
 from datetime import datetime, timezone, timedelta
 from backend.services.github_app import get_installation_token, load_private_key, generate_jwt
+
+logger = logging.getLogger(__name__)
 
 
 async def trigger_workflow(
@@ -152,7 +155,14 @@ async def find_workflow_run(
         runs_data = runs_response.json()
         workflow_runs = runs_data.get("workflow_runs", [])
         
-        # Find run where actor matches our app and created_at >= trigger_time
+        # Фильтруем runs по времени и другим критериям
+        # Ищем самый свежий run, созданный после trigger_time
+        candidate_runs = []
+        
+        # Определяем временное окно для поиска (от trigger_time до 30 секунд после)
+        time_window_start = trigger_time - timedelta(seconds=5)  # Небольшой запас назад
+        time_window_end = trigger_time + timedelta(seconds=30)   # Окно в будущее
+        
         for run in workflow_runs:
             actor = run.get("actor", {})
             actor_login = actor.get("login", "")
@@ -168,12 +178,9 @@ async def find_workflow_run(
                 try:
                     created_at = datetime.fromisoformat(created_at_str.replace('Z', '+00:00'))
                     
-                    # Check if run was created after trigger time (с небольшим запасом назад)
-                    time_threshold = trigger_time.replace(microsecond=0) - timedelta(seconds=2)
-                    
-                    if created_at >= time_threshold:
+                    # Проверяем, что run создан в нашем временном окне
+                    if time_window_start <= created_at <= time_window_end:
                         # Check if actor is our GitHub App
-                        # Actor can be app slug, app name, or [bot] format
                         is_our_app = False
                         
                         if app_slug:
@@ -182,16 +189,31 @@ async def find_workflow_run(
                                 actor_login == f"{app_slug}[bot]"):
                                 is_our_app = True
                         
-                        # Также проверяем по типу Bot (GitHub Apps всегда имеют type="Bot")
-                        if actor_type == "Bot" and not is_our_app:
-                            # Если это бот и мы не нашли по slug, проверяем что время совпадает
-                            # (может быть другой бот, но вероятность низкая если время совпадает)
-                            is_our_app = True
+                        # Также проверяем по типу Bot
+                        # GitHub Apps всегда имеют type="Bot"
+                        if actor_type == "Bot":
+                            # Если app_slug не совпал, но это бот и время совпадает,
+                            # считаем что это наш запуск (вероятность другого бота низкая)
+                            if not app_slug or is_our_app:
+                                is_our_app = True
                         
                         if is_our_app:
-                            return run
-                except (ValueError, AttributeError):
+                            candidate_runs.append((created_at, run))
+                            logger.debug(f"Found candidate run: id={run.get('id')}, created_at={created_at_str}, actor={actor_login}")
+                except (ValueError, AttributeError) as e:
+                    logger.debug(f"Error parsing created_at for run: {e}")
                     pass
         
+        # Если нашли подходящие runs, возвращаем самый свежий (самый поздний по времени)
+        if candidate_runs:
+            # Сортируем по времени создания (самый свежий первым)
+            candidate_runs.sort(key=lambda x: x[0], reverse=True)
+            _, best_run = candidate_runs[0]
+            run_id = best_run.get("id")
+            run_url = best_run.get("html_url")
+            logger.info(f"Found workflow run: id={run_id}, url={run_url}")
+            return best_run
+        
+        logger.warning(f"Workflow run not found for {owner}/{repo}/{workflow_id} triggered at {trigger_time}")
         return None
 
