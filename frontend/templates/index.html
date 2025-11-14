@@ -544,7 +544,7 @@
         
         // Функция для загрузки только workflows
         async function loadWorkflows(owner, repo) {
-            if (!owner || !repo) return;
+            if (!owner || !repo) return Promise.resolve();
             
             const workflowLoader = document.getElementById('workflow-loader');
             const workflowError = document.getElementById('workflow-error');
@@ -650,12 +650,20 @@
                 clearTimeout(loadTimeout);
                 loadTimeout = setTimeout(function() {
                     if (owner && repo) {
+                        // Проверяем права сразу при изменении репозитория
+                        checkUserPermissions();
                         // Загружаем workflows сразу при изменении репозитория
-                        loadWorkflows(owner, repo);
+                        loadWorkflows(owner, repo).then(function() {
+                            // Проверяем права еще раз после загрузки workflows
+                            checkUserPermissions();
+                        });
                         // Загружаем ветки с задержкой, чтобы не блокировать UI
                         setTimeout(function() {
                             loadBranches(owner, repo);
                         }, 1500);
+                    } else {
+                        // Если owner или repo пустые, отключаем кнопку
+                        checkUserPermissions();
                     }
                 }, 500);
                 }
