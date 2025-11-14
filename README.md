@@ -156,6 +156,17 @@ http://your-server/workflow/trigger?owner=owner_name&repo=my-repo&workflow_id=ci
 2. После авторизации → сразу запускается workflow
 3. Показывается страница с результатом
 
+### Быстрый запуск тестов (Badges)
+
+Таблица с быстрыми ссылками для запуска тестов с разными build presets:
+
+| Build Type | Run Tests | Run Tests Fast |
+|------------|-----------|----------------|
+| **RelWithDebInfo** | [![Run Tests](https://img.shields.io/badge/▶_Run_Tests-RelWithDebInfo-4caf50)](http://51.250.33.238:8000/?owner=naspirato&repo=ydb&workflow_id=run_tests.yml&test_targets=ydb/tests/&test_type=pytest&test_size=large&build_preset=relwithdebinfo) | [![Run Tests](https://img.shields.io/badge/▶_Run_Tests_fast-RelWithDebInfo-4caf50)](http://51.250.33.238:8000/workflow/trigger?owner=naspirato&repo=ydb&workflow_id=acceptance_run.yml&ref=main&build_preset=relwithdebinfo&runner_label=auto-provisioned) |
+| **MSan** | [![Run Tests](https://img.shields.io/badge/▶_Run_Tests-MSan-4caf50)](http://51.250.33.238:8000/?owner=naspirato&repo=ydb&workflow_id=run_tests.yml&test_targets=ydb/tests/&test_type=pytest&test_size=large&build_preset=release-msan) | [![Run Tests](https://img.shields.io/badge/▶_Run_Tests_fast-MSan-4caf50)](http://51.250.33.238:8000/workflow/trigger?owner=naspirato&repo=ydb&workflow_id=acceptance_run.yml&ref=main&build_preset=release-msan&runner_label=auto-provisioned) |
+| **ASan** | [![Run Tests](https://img.shields.io/badge/▶_Run_Tests-ASan-4caf50)](http://51.250.33.238:8000/?owner=naspirato&repo=ydb&workflow_id=run_tests.yml&test_targets=ydb/tests/&test_type=pytest&test_size=large&build_preset=release-asan) | [![Run Tests](https://img.shields.io/badge/▶_Run_Tests_fast-ASan-4caf50)](http://51.250.33.238:8000/workflow/trigger?owner=naspirato&repo=ydb&workflow_id=acceptance_run.yml&ref=main&build_preset=release-asan&runner_label=auto-provisioned) |
+| **TSan** | [![Run Tests](https://img.shields.io/badge/▶_Run_Tests-TSan-4caf50)](http://51.250.33.238:8000/?owner=naspirato&repo=ydb&workflow_id=run_tests.yml&test_targets=ydb/tests/&test_type=pytest&test_size=large&build_preset=release-tsan) | [![Run Tests](https://img.shields.io/badge/▶_Run_Tests_fast-TSan-4caf50)](http://51.250.33.238:8000/workflow/trigger?owner=naspirato&repo=ydb&workflow_id=acceptance_run.yml&ref=main&build_preset=release-tsan&runner_label=auto-provisioned) |
+
 ### Через curl (с OAuth сессией)
 
 1. Авторизуйтесь один раз в браузере

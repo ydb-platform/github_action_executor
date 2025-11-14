@@ -30,7 +30,7 @@ def get_oauth_url(state: str = None) -> str:
     params = {
         "client_id": client_id,
         "redirect_uri": callback_url,
-        "scope": "read:user"
+        "scope": "read:user repo"
     }
     
     if state:
