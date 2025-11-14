@@ -271,7 +271,9 @@ header h1 {
 }
 
 .btn-primary:active:not(:disabled) {
-    background: #e5e7eb;
+    background: #10b981;  /* Зеленый цвет при нажатии */
+    color: white;
+    border-color: #059669;
 }
 
 .btn-primary:disabled {
@@ -286,10 +288,14 @@ header h1 {
 
 .btn-secondary {
     background: #f9fafb;
+    border-color: #6b7280;  /* Темнее обводка */
+    color: #374151;  /* Темнее текст */
 }
 
 .btn-secondary:hover:not(:disabled) {
     background: #f3f4f6;
+    border-color: #4b5563;
+    color: #1f2937;
 }
 
 .btn-secondary:disabled {
@@ -553,9 +559,10 @@ header h1 {
 }
 
 #permission-message:not(:empty) {
-    background: #fef2f2;
-    border: 1px solid #fecaca;
-    color: #991b1b;
+    background: #fff5f5;  /* Нежно-розовый фон */
+    border: 1px solid #fce7e7;  /* Мягкая розовая граница */
+    color: #6b7280;  /* Серый текст */
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);  /* Легкая тень для глубины */
 }
 
 /* Responsive */
