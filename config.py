@@ -38,9 +38,9 @@ if env_patterns:
 # По умолчанию: True (проверка включена)
 CHECK_PERMISSIONS = os.getenv("CHECK_PERMISSIONS", "true").lower() == "true"
 
-# Разрешать запуск workflows только коллабораторам (не контрибьюторам)
-# Если True: разрешаем только пользователям с доступом к репозиторию (коллабораторам)
-# Если False: разрешаем и контрибьюторам, и коллабораторам
-# По умолчанию: True (только коллабораторы)
-ALLOW_COLLABORATORS_ONLY = os.getenv("ALLOW_COLLABORATORS_ONLY", "true").lower() == "true"
+# Разрешать запуск workflows только контрибьюторам
+# Если True: разрешаем только контрибьюторам (пользователям, которые сделали коммиты)
+# Если False: разрешаем и контрибьюторам, и коллабораторам (пользователям с доступом к репозиторию)
+# По умолчанию: True (только контрибьюторы)
+ALLOW_CONTRIBUTORS_ONLY = os.getenv("ALLOW_CONTRIBUTORS_ONLY", "true").lower() == "true"
 

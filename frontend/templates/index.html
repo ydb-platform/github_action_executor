@@ -945,8 +945,8 @@
                 } else {
                     runButton.disabled = true;
                     // Show appropriate message based on configuration
-                    if (data.allow_collaborators_only) {
-                        permissionMessage.textContent = `You are not a collaborator of ${owner}/${repo}. Only collaborators can trigger workflows.`;
+                    if (data.allow_contributors_only) {
+                        permissionMessage.textContent = `You are not a contributor of ${owner}/${repo}. Only contributors can trigger workflows.`;
                     } else {
                         permissionMessage.textContent = `You are not a contributor or collaborator of ${owner}/${repo}`;
                     }
