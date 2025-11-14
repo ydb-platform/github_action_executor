@@ -27,7 +27,7 @@
         </header>
 
         {% if user %}
-        <main id="workflow-form-container" data-workflow-inputs="{{ workflow_inputs | tojson | safe }}">
+        <main id="workflow-form-container">
             <form id="workflowForm" action="/workflow/trigger" method="post" class="workflow-form">
                 <div class="form-group">
                     <div class="field-header">
@@ -147,12 +147,23 @@
     <script>
         // Функция для получения workflow inputs из URL параметров
         function getWorkflowInputsFromUrl() {
-            const container = document.getElementById('workflow-form-container');
-            if (!container) return {};
             try {
-                return JSON.parse(container.dataset.workflowInputs || '{}');
+                const urlParams = new URLSearchParams(window.location.search);
+                const workflowInputs = {};
+                
+                // Список служебных параметров, которые не являются workflow inputs
+                const excludedParams = ['owner', 'repo', 'workflow_id', 'ref', 'ui', 'tests'];
+                
+                // Извлекаем все параметры кроме служебных
+                for (const [key, value] of urlParams.entries()) {
+                    if (!excludedParams.includes(key) && value) {
+                        workflowInputs[key] = value;
+                    }
+                }
+                
+                return workflowInputs;
             } catch (e) {
-                console.error('Failed to parse workflow inputs:', e);
+                console.error('Failed to get workflow inputs from URL:', e);
                 return {};
             }
         }
