@@ -139,7 +139,64 @@ echo $! > app.pid
 kill $(cat app.pid)
 ```
 
-#### Вариант 3: Использование systemd (для production)
+#### Вариант 3: Использование systemd (для production) ⭐ РЕКОМЕНДУЕТСЯ
+
+**Преимущества:**
+- ✅ Автоматический запуск при перезагрузке системы
+- ✅ Автоматический перезапуск при падении приложения
+- ✅ Управление через systemctl
+- ✅ Логи в systemd journal
+
+**Настройка:**
+
+Адаптировать `/github-action-executor.service`
+
+**Управление сервисом:**
+
+```bash
+# Запустить сервис
+sudo systemctl start github-action-executor
+
+# Остановить сервис
+sudo systemctl stop github-action-executor
+
+# Перезапустить сервис
+sudo systemctl restart github-action-executor
+
+# Проверить статус
+sudo systemctl status github-action-executor
+
+# Включить автозапуск при загрузке системы
+sudo systemctl enable github-action-executor
+
+# Отключить автозапуск
+sudo systemctl disable github-action-executor
+
+# Просмотр логов
+sudo journalctl -u github-action-executor -f
+
+# Просмотр последних 50 строк логов
+sudo journalctl -u github-action-executor -n 50
+```
+
+**Если нужно изменить настройки:**
+
+1. Отредактируйте service файл:
+```bash
+sudo nano /etc/systemd/system/github-action-executor.service
+# или отредактируйте исходный файл:
+nano /home/kirrysin/gax/github-action-executor.service
+# затем скопируйте:
+sudo cp /home/kirrysin/gax/github-action-executor.service /etc/systemd/system/
+```
+
+2. Перезагрузите systemd и перезапустите сервис:
+```bash
+sudo systemctl daemon-reload
+sudo systemctl restart github-action-executor
+```
+
+**Старая инструкция (для справки):**
 
 1. Отредактируйте service файл и замените плейсхолдеры:
 ```bash

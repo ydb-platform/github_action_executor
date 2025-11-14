@@ -4,19 +4,15 @@ After=network.target
 
 [Service]
 Type=simple
-# TODO: Замените YOUR_USERNAME на ваше имя пользователя
 User=YOUR_USERNAME
-# TODO: Замените /path/to/github_action_executor на путь к директории проекта
-WorkingDirectory=/path/to/github_action_executor
-Environment="PATH=/path/to/github_action_executor/venv/bin"
-ExecStart=/path/to/github_action_executor/venv/bin/uvicorn app:app --host 0.0.0.0 --port 8000
+WorkingDirectory=/path/to/project
+Environment="PATH=/path/to/project/venv/bin:/usr/local/bin:/usr/bin:/bin"
+EnvironmentFile=/path/to/project/.env
+ExecStart=/path/to/project/venv/bin/uvicorn app:app --host 0.0.0.0 --port 8000
 Restart=always
 RestartSec=10
 StandardOutput=journal
 StandardError=journal
-
-# Переменные окружения (если нужно, раскомментируйте и укажите путь к .env)
-# EnvironmentFile=/path/to/github_action_executor/.env
 
 [Install]
 WantedBy=multi-user.target
