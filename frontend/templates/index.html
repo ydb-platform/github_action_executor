@@ -156,6 +156,49 @@
                 return {};
             }
         }
+        
+        // Функция для предзаполнения workflow inputs из URL параметров
+        function populateWorkflowInputsFromUrl() {
+            const workflowInputsFromUrl = getWorkflowInputsFromUrl();
+            if (!workflowInputsFromUrl || Object.keys(workflowInputsFromUrl).length === 0) {
+                return;
+            }
+            
+            console.log('Populating workflow inputs from URL:', workflowInputsFromUrl);
+            
+            for (const [inputName, inputValue] of Object.entries(workflowInputsFromUrl)) {
+                const inputElement = document.getElementById(`input_${inputName}`);
+                if (inputElement) {
+                    if (inputElement.type === 'checkbox') {
+                        inputElement.checked = inputValue === 'true' || inputValue === true || inputValue === '1';
+                    } else if (inputElement.tagName === 'SELECT') {
+                        // Для select выбираем опцию по значению
+                        inputElement.value = inputValue;
+                        // Если есть связанное поле поиска, обновляем его
+                        const searchInputId = inputElement.id.replace('input_', '').replace(/_/g, '-');
+                        const searchInput = document.getElementById(`search_${inputName}`);
+                        if (!searchInput) {
+                            // Пытаемся найти по другому паттерну
+                            const parent = inputElement.closest('.form-group');
+                            if (parent) {
+                                const searchInputs = parent.querySelectorAll('input[type="text"]');
+                                if (searchInputs.length > 0) {
+                                    const selectedOption = inputElement.options[inputElement.selectedIndex];
+                                    if (selectedOption) {
+                                        searchInputs[0].value = selectedOption.textContent;
+                                    }
+                                }
+                            }
+                        }
+                    } else {
+                        inputElement.value = inputValue;
+                    }
+                    console.log(`Populated input_${inputName} with value:`, inputValue);
+                } else {
+                    console.warn(`Input element not found: input_${inputName}`);
+                }
+            }
+        }
         // Функция для инициализации searchable select
         function initSearchableSelect(searchInputId, selectId, dropdownId) {
             const searchInput = document.getElementById(searchInputId);
@@ -408,32 +451,10 @@
                     inputsWrapper.style.display = 'block';
                     
                     // Предзаполняем поля значениями из URL параметров
+                    // Используем небольшую задержку, чтобы DOM успел обновиться
                     setTimeout(function() {
-                        const workflowInputsFromUrl = getWorkflowInputsFromUrl();
-                        if (workflowInputsFromUrl && Object.keys(workflowInputsFromUrl).length > 0) {
-                            for (const [inputName, inputValue] of Object.entries(workflowInputsFromUrl)) {
-                                const inputElement = document.getElementById(`input_${inputName}`);
-                                if (inputElement) {
-                                    if (inputElement.type === 'checkbox') {
-                                        inputElement.checked = inputValue === 'true' || inputValue === true || inputValue === '1';
-                                    } else if (inputElement.tagName === 'SELECT') {
-                                        // Для select выбираем опцию по значению
-                                        inputElement.value = inputValue;
-                                        // Обновляем связанное поле поиска, если есть
-                                        const searchInput = document.getElementById(`workflow_search`);
-                                        if (searchInput && inputElement.id === 'workflow_id') {
-                                            const selectedOption = inputElement.options[inputElement.selectedIndex];
-                                            if (selectedOption) {
-                                                searchInput.value = selectedOption.textContent;
-                                            }
-                                        }
-                                    } else {
-                                        inputElement.value = inputValue;
-                                    }
-                                }
-                            }
-                        }
-                    }, 100);
+                        populateWorkflowInputsFromUrl();
+                    }, 200);
                 } else {
                     // Ошибка от сервера
                     const errorText = await response.text();
@@ -885,10 +906,24 @@
                 
                 if (owner && repo && workflowId) {
                     // Небольшая задержка, чтобы форма успела инициализироваться
-                    setTimeout(function() {
-                        loadWorkflowInputs();
+                    setTimeout(async function() {
+                        await loadWorkflowInputs();
+                        // После загрузки workflow inputs предзаполняем их из URL
+                        setTimeout(function() {
+                            populateWorkflowInputsFromUrl();
+                        }, 300);
                     }, 500);
+                } else {
+                    // Если workflow_id нет, все равно попробуем предзаполнить то, что есть
+                    setTimeout(function() {
+                        populateWorkflowInputsFromUrl();
+                    }, 300);
                 }
+            } else {
+                // Если элементов нет, все равно попробуем предзаполнить через некоторое время
+                setTimeout(function() {
+                    populateWorkflowInputsFromUrl();
+                }, 1000);
             }
         }
         
