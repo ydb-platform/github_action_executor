@@ -30,7 +30,7 @@ def get_oauth_url(state: str = None) -> str:
     params = {
         "client_id": client_id,
         "redirect_uri": callback_url,
-        "scope": "read:user repo"
+        "scope": "read:user repo"  # read:user for user info, repo for triggering workflows (workflow_dispatch requires repo scope)
     }
     
     if state:
