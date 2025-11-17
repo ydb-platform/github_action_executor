@@ -83,17 +83,39 @@ async def trigger_workflow(
             }
     except httpx.HTTPStatusError as e:
         error_message = "Unknown error"
+        user_friendly_message = None
+        
         try:
             error_data = e.response.json()
             error_message = error_data.get("message", str(e))
+            
+            # GitHub API returns "Must have admin rights to Repository", 
+            # but actually Write permission is sufficient
+            if "admin" in error_message.lower() and "right" in error_message.lower():
+                user_friendly_message = (
+                    f"Insufficient permissions to trigger workflow.\n\n"
+                    f"GitHub API requires Write permission (or higher) in the repository to trigger workflows via API.\n"
+                    f"Note: The error message mentions 'admin rights', but Write permission is sufficient.\n\n"
+                    f"What to do:\n"
+                    f"1. Ensure you have Write (or higher) permission in repository {owner}/{repo}\n"
+                    f"2. If repository is in an organization, check organization settings:\n"
+                    f"   - Organization Settings → Policies → Actions → enable Actions\n"
+                    f"   - Organization Settings → Policies → Actions → Workflow permissions → Read and write\n"
+                    f"3. Check permissions: Repo → Settings → Collaborators & teams\n\n"
+                    f"Alternative: Set USE_USER_TOKEN_FOR_WORKFLOWS=false to use GitHub App account instead"
+                )
         except:
             error_message = str(e)
         
         logger.error(f"Failed to trigger workflow: {error_message} (status: {e.response.status_code})")
+        
+        # Используем понятное сообщение, если доступно, иначе оригинальное
+        final_message = user_friendly_message if user_friendly_message else f"Failed to trigger workflow: {error_message}"
+        
         return {
             "success": False,
             "status_code": e.response.status_code,
-            "message": f"Failed to trigger workflow: {error_message}"
+            "message": final_message
         }
 
 

@@ -925,6 +925,57 @@ docker-compose up -d
 
 ## Решение проблем
 
+### Ошибка "Must have admin rights to Repository"
+
+Если вы получаете ошибку **"Failed to trigger workflow: Must have admin rights to Repository"**, это сообщение от GitHub API может быть вводящим в заблуждение. На самом деле для запуска workflow от имени пользователя через GitHub API требуется разрешение на **Write** (или выше), а не обязательно Admin.
+
+**Решение:**
+
+#### 1. Разрешить Actions в организации
+
+Если репозиторий принадлежит организации, необходимо настроить разрешения на уровне организации:
+
+1. **Перейдите:** Organization Settings → Policies → Actions
+   - (в меню слева «Code, planning, and automation → Actions»)
+2. **Найдите раздел "Actions permissions"**
+3. **Включите:**
+   - "Allow all actions and reusable workflows"
+   - или "Allow selected actions..." — если хотите ограничить
+
+#### 2. Разрешить членам организации выполнять (run) workflow
+
+В том же разделе:
+
+1. **Найдите подраздел "Workflow permissions"**
+2. **Установите:**
+   - "Read and write permissions" (если workflow должен пушить, создавать PR и т.п.)
+3. **Отметьте галочку:**
+   - "Allow GitHub Actions to create and approve pull requests"
+
+#### 3. У пользователя должны быть минимум Write права на репозиторий
+
+**Важно:**
+- Read недостаточно — кнопки не будет
+- Write / Maintainer / Admin — кнопка появится
+
+**Проверьте:**
+- Repo → Settings → Collaborators & teams → Teams / People
+
+**Пользователь должен иметь:**
+- Write (или выше)
+- и быть членом вашей организации (если репозиторий в организации)
+
+**Как дать права:**
+1. Перейдите в репозиторий: `https://github.com/{owner}/{repo}`
+2. Settings → Collaborators and teams (или Manage access)
+3. Добавьте пользователя с правами **Write** (достаточно для запуска workflow, Admin не требуется)
+4. Пользователь должен принять приглашение
+
+**Альтернативное решение:**
+- Установите `USE_USER_TOKEN_FOR_WORKFLOWS=false` в конфигурации
+- Тогда workflow будут запускаться от имени GitHub App, и права администратора не потребуются
+- GitHub App должен иметь права Actions: Read and write в настройках
+
 ### OAuth App access restrictions
 
 Если вы видите ошибку о том, что организация включила ограничения доступа для OAuth приложений:
