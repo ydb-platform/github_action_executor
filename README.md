@@ -15,371 +15,80 @@
 - ✅ Кэширование веток и workflows для улучшения производительности
 - ✅ Готово для развертывания в Yandex Cloud
 
-## Требования
+## Быстрый старт
 
-- Python 3.11+
-- GitHub OAuth App
-- GitHub App с установкой в репозиторий
+### 1. Установка
 
-## Установка
+```bash
+# Клонируйте репозиторий
+git clone <repository-url>
+cd github_action_executor
 
-1. **Клонируйте репозиторий:**
-   ```bash
-   git clone <repository-url>
-   cd github_action_executor
-   ```
+# Установите зависимости
+pip install -r requirements.txt
+```
 
-2. **Установите зависимости:**
-   ```bash
-   pip install -r requirements.txt
-   ```
+### 2. Настройка GitHub
 
-3. **Настройте переменные окружения:**
-
-   Создайте файл `.env` со следующими переменными:
-
-   **Обязательные:**
-   - `SECRET_KEY` - случайный секретный ключ для сессий (например, сгенерируйте через `openssl rand -hex 32`)
-   - `GITHUB_CLIENT_ID` - Client ID из OAuth App
-   - `GITHUB_CLIENT_SECRET` - Client Secret из OAuth App
-   - `GITHUB_APP_ID` - App ID из GitHub App
-   - `GITHUB_APP_INSTALLATION_ID` - Installation ID
-   - `GITHUB_APP_PRIVATE_KEY_PATH` - путь к файлу с приватным ключом (например, `github-app-private-key.pem`)
-
-   **Опциональные:**
-   - `GITHUB_CALLBACK_URL` - URL для OAuth callback (по умолчанию: `http://localhost:8000/auth/github/callback`)
-   - `DEFAULT_REPO_OWNER` - владелец репозитория по умолчанию
-   - `DEFAULT_REPO_NAME` - название репозитория по умолчанию
-   - `DEFAULT_WORKFLOW_ID` - ID workflow по умолчанию
-   - `HOST` - хост для запуска (по умолчанию: `0.0.0.0`)
-   - `PORT` - порт для запуска (по умолчанию: `8000`)
-   - `AUTO_OPEN_RUN` - автоматически открывать ссылку на запуск workflow (по умолчанию: `true`)
-   - `BRANCH_FILTER_PATTERNS` - regex-паттерны для фильтрации веток через запятую (например: `^main$,^stable-.*,^stream-.*`)
-   - `CHECK_PERMISSIONS` - проверять права коллаборатора перед запуском (по умолчанию: `true`)
-   - `USE_USER_TOKEN_FOR_WORKFLOWS` - запускать workflow от имени пользователя вместо GitHub App (по умолчанию: `true`)
-
-## Настройка GitHub
-
-### 1. Создание OAuth App
-
+**Создайте OAuth App:**
 1. Перейдите в [GitHub Settings > Developer settings > OAuth Apps](https://github.com/settings/developers)
 2. Нажмите "New OAuth App"
 3. Заполните:
    - **Application name**: GitHub Action Executor
-   - **Homepage URL**: `http://localhost:8000` (для разработки)
+   - **Homepage URL**: `http://localhost:8000`
    - **Authorization callback URL**: `http://localhost:8000/auth/github/callback`
 4. Сохраните **Client ID** и **Client Secret**
 
-### 2. Создание GitHub App
-
+**Создайте GitHub App:**
 1. Перейдите в [GitHub Settings > Developer settings > GitHub Apps](https://github.com/settings/apps)
 2. Нажмите "New GitHub App"
 3. Заполните:
    - **GitHub App name**: GitHub Action Executor
    - **Homepage URL**: `http://localhost:8000`
-   - **Webhook URL**: (можно оставить пустым)
    - **Permissions**:
      - **Actions**: Read and write
-     - **Contents**: Read-only (или Read and write если нужно)
+     - **Contents**: Read-only
      - **Metadata**: Read-only
 4. Сохраните **App ID**
 5. Сгенерируйте **Private key** и скачайте файл `.pem`
 6. Установите приложение в репозиторий или организацию
-7. Найдите **Installation ID** в URL установки (8-значное число)
+7. Найдите **Installation ID** в URL установки
 
-### 3. Настройка Workflow
+### 3. Настройка переменных окружения
 
-Ваш workflow должен поддерживать `workflow_dispatch` с inputs. Приложение автоматически определяет все inputs из YAML и создает соответствующие поля в форме.
-
-**Пример простого workflow:**
-
-```yaml
-name: CI Tests
-
-on:
-  workflow_dispatch:
-    inputs:
-      tests:
-        description: 'Tests to run'
-        required: false
-        type: string
-        default: 'unit'
-
-jobs:
-  test:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - name: Run tests
-        run: |
-          echo "Running tests: ${{ inputs.tests }}"
-          # Ваши команды для запуска тестов
-```
-
-**Пример workflow с разными типами inputs:**
-
-```yaml
-name: Advanced Workflow
-
-on:
-  workflow_dispatch:
-    inputs:
-      test_targets:
-        description: 'Test targets to run'
-        required: true
-        type: string
-      test_type:
-        description: 'Type of tests'
-        required: false
-        type: choice
-        options:
-          - pytest
-          - unittest
-          - integration
-        default: 'pytest'
-      test_size:
-        description: 'Test size'
-        required: false
-        type: choice
-        options:
-          - small
-          - medium
-          - large
-      build_preset:
-        description: 'Build preset'
-        required: false
-        type: string
-        default: 'release'
-      enable_debug:
-        description: 'Enable debug mode'
-        required: false
-        type: boolean
-        default: false
-
-jobs:
-  test:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - name: Run tests
-        run: |
-          echo "Test targets: ${{ inputs.test_targets }}"
-          echo "Test type: ${{ inputs.test_type }}"
-          echo "Test size: ${{ inputs.test_size }}"
-          echo "Build preset: ${{ inputs.build_preset }}"
-          echo "Debug: ${{ inputs.enable_debug }}"
-```
-
-Приложение автоматически создаст форму с:
-- Текстовым полем для `test_targets` (required)
-- Выпадающим списком для `test_type` с опциями pytest/unittest/integration
-- Выпадающим списком для `test_size` с опциями small/medium/large
-- Текстовым полем для `build_preset` с дефолтным значением
-- Чекбоксом для `enable_debug`
-
-## Запуск локально
+Создайте файл `.env`:
 
 ```bash
-# Простой запуск
-python app.py
+# Обязательные
+SECRET_KEY=<сгенерируйте через: openssl rand -hex 32>
+GITHUB_CLIENT_ID=<из OAuth App>
+GITHUB_CLIENT_SECRET=<из OAuth App>
+GITHUB_APP_ID=<из GitHub App>
+GITHUB_APP_INSTALLATION_ID=<из URL установки>
+GITHUB_APP_PRIVATE_KEY_PATH=github-app-private-key.pem
+```
 
-# Или с uvicorn
-uvicorn app:app --host 0.0.0.0 --port 8000 --reload
+### 4. Запуск
+
+```bash
+python app.py
 ```
 
 Приложение будет доступно по адресу: http://localhost:8000
 
-### Запуск в фоне (после отключения от SSH)
-
-#### Вариант 1: Использование скриптов start.sh/stop.sh (рекомендуется)
-
-```bash
-# Запуск в фоне
-./start.sh
-
-# Проверка логов
-tail -f nohup.out
-
-# Остановка
-./stop.sh
-```
-
-Скрипт автоматически:
-- Активирует виртуальное окружение
-- Запускает приложение с `nohup` (не завершится при отключении от SSH)
-- Сохраняет PID процесса в файл `app.pid`
-- Записывает логи в `nohup.out`
-
-#### Вариант 2: Ручной запуск с nohup
-
-```bash
-# Активируйте виртуальное окружение
-source venv/bin/activate
-
-# Запустите с nohup
-nohup uvicorn app:app --host 0.0.0.0 --port 8000 > nohup.out 2>&1 &
-
-# Сохраните PID (выведется после запуска)
-echo $! > app.pid
-
-# Для остановки
-kill $(cat app.pid)
-```
-
-#### Вариант 3: Использование systemd (для production) ⭐ РЕКОМЕНДУЕТСЯ
-
-**Преимущества:**
-- ✅ Автоматический запуск при перезагрузке системы
-- ✅ Автоматический перезапуск при падении приложения
-- ✅ Управление через systemctl
-- ✅ Логи в systemd journal
-
-**Настройка:**
-
-Адаптировать `/github-action-executor.service`
-
-**Управление сервисом:**
-
-```bash
-# Запустить сервис
-sudo systemctl start github-action-executor
-
-# Остановить сервис
-sudo systemctl stop github-action-executor
-
-# Перезапустить сервис
-sudo systemctl restart github-action-executor
-
-# Проверить статус
-sudo systemctl status github-action-executor
-
-# Включить автозапуск при загрузке системы
-sudo systemctl enable github-action-executor
-
-# Отключить автозапуск
-sudo systemctl disable github-action-executor
-
-# Просмотр логов
-sudo journalctl -u github-action-executor -f
-
-# Просмотр последних 50 строк логов
-sudo journalctl -u github-action-executor -n 50
-```
-
-**Если нужно изменить настройки:**
-
-1. Отредактируйте service файл:
-```bash
-sudo nano /etc/systemd/system/github-action-executor.service
-# или отредактируйте исходный файл:
-nano /home/kirrysin/gax/github-action-executor.service
-# затем скопируйте:
-sudo cp /home/kirrysin/gax/github-action-executor.service /etc/systemd/system/
-```
-
-2. Перезагрузите systemd и перезапустите сервис:
-```bash
-sudo systemctl daemon-reload
-sudo systemctl restart github-action-executor
-```
-
-**Старая инструкция (для справки):**
-
-1. Отредактируйте service файл и замените плейсхолдеры:
-```bash
-# Откройте файл для редактирования
-nano github-action-executor.service
-
-# Замените:
-# - YOUR_USERNAME на ваше имя пользователя
-# - /path/to/github_action_executor на полный путь к директории проекта
-```
-
-2. Скопируйте service файл:
-```bash
-sudo cp github-action-executor.service /etc/systemd/system/
-```
-
-3. Запустите сервис:
-```bash
-# Перезагрузите systemd
-sudo systemctl daemon-reload
-
-# Запустите сервис
-sudo systemctl start github-action-executor
-
-# Включите автозапуск при перезагрузке
-sudo systemctl enable github-action-executor
-
-# Проверьте статус
-sudo systemctl status github-action-executor
-
-# Просмотр логов
-sudo journalctl -u github-action-executor -f
-
-# Остановка
-sudo systemctl stop github-action-executor
-```
-
-#### Вариант 4: Использование screen или tmux
-
-```bash
-# Установите screen (если не установлен)
-sudo apt-get install screen  # для Ubuntu/Debian
-# или
-sudo yum install screen      # для CentOS/RHEL
-
-# Запустите screen сессию
-screen -S gax
-
-# Внутри screen запустите приложение
-source venv/bin/activate
-uvicorn app:app --host 0.0.0.0 --port 8000
-
-# Отключитесь от screen: нажмите Ctrl+A, затем D
-
-# Вернуться к сессии
-screen -r gax
-
-# Список всех сессий
-screen -ls
-```
-
-## Использование Docker
-
-```bash
-# Соберите образ
-docker build -t github-action-executor .
-
-# Запустите контейнер
-docker run -p 8000:8000 --env-file .env \
-  -v $(pwd)/github-app-private-key.pem:/app/github-app-private-key.pem:ro \
-  github-action-executor
-```
-
-Или используйте docker-compose:
-
-```bash
-docker-compose up -d
-```
-
-## Развертывание в Yandex Cloud
-
-Подробные инструкции по развертыванию в Yandex Cloud см. в файле [yandex-cloud-deploy.md](yandex-cloud-deploy.md)
-
-### Быстрый старт с Cloud Run:
-
-1. Соберите Docker образ
-2. Загрузите в Yandex Container Registry
-3. Создайте Cloud Run сервис
-4. Настройте переменные окружения
-5. Создайте API Gateway для публичного доступа
-
-## Flow запуска workflow
+## Описание пользовательских потоков
 
 Ниже представлены диаграммы пользовательских потоков для разных сценариев запуска workflow:
 
 ### Сценарий 1: Запуск через веб-интерфейс (полное заполнение вручную)
+
+**Описание:**
+- Пользователь открывает веб-интерфейс
+- Если не авторизован → автоматический редирект на GitHub для авторизации
+- После авторизации показывается форма с выбором репозитория, workflow, ветки и параметров
+- Форма автоматически подгружает доступные workflows и ветки
+- После заполнения и нажатия "Запустить" → проверка прав → запуск workflow
+- Показывается страница с результатом и ссылкой на запуск в GitHub Actions
 
 ```mermaid
 flowchart TD
@@ -419,6 +128,13 @@ flowchart TD
 ```
 
 ### Сценарий 2: Запуск по прямой ссылке из PR/документации
+
+**Описание:**
+- Пользователь переходит по готовой ссылке (например, из документации или badge)
+- Если не авторизован → автоматическая авторизация с возвратом к ссылке
+- Workflow запускается автоматически с параметрами из ссылки
+- Показывается страница с результатом
+- **Зачем это нужно**: Можно создать закладки или badges для быстрого запуска часто используемых workflows
 
 ```mermaid
 flowchart TD
@@ -469,6 +185,15 @@ flowchart TD
 
 ### Сценарий 3: Запуск через REST API (для автоматизации)
 
+**Описание:**
+- Программный доступ через REST API
+- Позволяет интегрировать запуск workflows в:
+  - CI/CD пайплайны
+  - Скрипты автоматизации
+  - Другие системы и инструменты
+- Возвращает JSON с результатом запуска
+- **Зачем это нужно**: Для автоматизации и интеграции с другими системами
+
 ```mermaid
 flowchart TD
     Start([Программный запрос через API]) --> ExplainAPI["API позволяет:<br/>- Интегрировать в CI/CD<br/>- Создавать скрипты<br/>- Автоматизировать процессы"]
@@ -496,6 +221,13 @@ flowchart TD
 
 ### Сценарий 4: Как работает авторизация через GitHub OAuth
 
+**Описание:**
+- Процесс OAuth авторизации с защитой от CSRF атак
+- Запрос разрешений у пользователя (read:user и repo scopes)
+- Обмен authorization code на access token
+- Сохранение токена в сессии сервера
+- Автоматический возврат к сохраненной ссылке после авторизации
+
 ```mermaid
 flowchart TD
     Start([Пользователь начинает работу]) --> NeedAuth{Требуется авторизация?}
@@ -504,7 +236,7 @@ flowchart TD
     
     InitOAuth --> GenerateState[Генерация state токена<br/>для защиты от CSRF]
     GenerateState --> SaveState[Сохранение state в сессии]
-    SaveState --> BuildOAuthURL[Построение OAuth URL:<br/>- Client ID<br/>- Redirect URI<br/>- State токен<br/>- Scopes: repo, workflow]
+    SaveState --> BuildOAuthURL[Построение OAuth URL:<br/>- Client ID<br/>- Redirect URI<br/>- State токен<br/>- Scopes: read:user repo<br/>  или read:user если USE_USER_TOKEN_FOR_WORKFLOWS=false]
     BuildOAuthURL --> RedirectGitHub[Редирект на GitHub]
     
     RedirectGitHub --> GitHubLogin[Пользователь авторизуется на GitHub]
@@ -521,8 +253,7 @@ flowchart TD
     SaveSession --> SessionReady[Сессия готова, пользователь авторизован]
     
     SessionReady --> CheckScopes{Какие разрешения получены?}
-    CheckScopes --> ScopesRepo["repo scope:<br/>- Чтение/запись репозиториев<br/>- Проверка доступа к репозиториям"]
-    CheckScopes --> ScopesWorkflow["workflow scope:<br/>- Запуск workflows<br/>- Просмотр workflow runs"]
+    CheckScopes --> ScopesRepo["read:user repo scopes:<br/>- read:user: информация о пользователе<br/>- repo: чтение/запись репозиториев<br/>- Проверка доступа к репозиториям<br/>- Запуск workflows через workflow_dispatch"]
     
     CancelAuth --> AuthFailed[Авторизация не завершена]
     ErrorCSRF --> AuthFailed
@@ -537,12 +268,13 @@ flowchart TD
     class VerifyState,ErrorCSRF security
     class SessionReady,AlreadyAuth success
     class CancelAuth,AuthFailed error
-    class ScopesRepo,ScopesWorkflow scopes
+    class ScopesRepo scopes
 ```
 
 **Требуемые разрешения (OAuth Scopes):**
-- `repo` - доступ к репозиториям (чтение/запись)
-- `workflow` - запуск и управление GitHub Actions workflows
+- `read:user` - чтение информации о пользователе (всегда требуется)
+- `repo` - доступ к репозиториям (чтение/запись) - требуется если `USE_USER_TOKEN_FOR_WORKFLOWS=true` (по умолчанию)
+- Если `USE_USER_TOKEN_FOR_WORKFLOWS=false`, то достаточно только `read:user` (workflows запускаются от имени GitHub App)
 
 **Безопасность:**
 - State токен защищает от CSRF атак
@@ -550,6 +282,12 @@ flowchart TD
 - Токен используется для проверки доступа к репозиториям
 
 ### Сценарий 5: Подключение к проекту/организации
+
+**Описание:**
+- Пошаговая настройка системы для работы с конкретным проектом или организацией
+- Разделение ролей: админ приложения создает OAuth App и GitHub App, админ репозитория устанавливает GitHub App
+- Настройка переменных окружения и размещение приватного ключа
+- Проверка подключения перед началом работы
 
 ```mermaid
 flowchart TD
@@ -638,6 +376,13 @@ flowchart TD
 
 ### Сценарий 6: Архитектура системы и взаимодействие компонентов
 
+**Описание:**
+- Общая архитектура системы и взаимодействие между компонентами
+- Потоки данных от пользователя через веб-приложение к GitHub API
+- Использование OAuth токенов для авторизации пользователей
+- Использование GitHub App токенов для запуска workflows
+- Разделение ответственности между сервисами
+
 ```mermaid
 flowchart LR
     User([Пользователь]) --> WebApp[Веб-приложение<br/>FastAPI]
@@ -687,32 +432,6 @@ flowchart LR
 - Permissions проверяет доступ через Repository API
 - Workflow Service запускает workflow через Actions API
 
-### Описание пользовательских потоков
-
-1. **Запуск через веб-интерфейс** (основной способ):
-   - Пользователь открывает веб-интерфейс
-   - Если не авторизован → автоматический редирект на GitHub для авторизации
-   - После авторизации показывается форма с выбором репозитория, workflow, ветки и параметров
-   - Форма автоматически подгружает доступные workflows и ветки
-   - После заполнения и нажатия "Запустить" → проверка прав → запуск workflow
-   - Показывается страница с результатом и ссылкой на запуск в GitHub Actions
-
-2. **Запуск по прямой ссылке** (быстрый способ):
-   - Пользователь переходит по готовой ссылке (например, из документации или badge)
-   - Если не авторизован → автоматическая авторизация с возвратом к ссылке
-   - Workflow запускается автоматически с параметрами из ссылки
-   - Показывается страница с результатом
-   - **Зачем это нужно**: Можно создать закладки или badges для быстрого запуска часто используемых workflows
-
-3. **Автоматизация через API** (для продвинутых пользователей):
-   - Программный доступ через REST API
-   - Позволяет интегрировать запуск workflows в:
-     - CI/CD пайплайны
-     - Скрипты автоматизации
-     - Другие системы и инструменты
-   - Возвращает JSON с результатом запуска
-   - **Зачем это нужно**: Для автоматизации и интеграции с другими системами
-
 ### Ключевые моменты
 
 - **Авторизация**: Требуется один раз через GitHub OAuth, затем сессия сохраняется
@@ -755,7 +474,7 @@ http://your-server/workflow/trigger?owner=owner_name&repo=my-repo&workflow_id=ci
 **Пример с несколькими inputs:**
 
 ```
-http://your-server/workflow/trigger?owner=naspirato&repo=ydb&workflow_id=run_tests.yml&ref=main&test_targets=ydb/tests/&test_type=pytest&test_size=large&build_preset=relwithdebinfo
+http://your-server/workflow/trigger?owner=owner_name&repo=my-repo&workflow_id=run_tests.yml&ref=main&test_targets=tests/&test_type=pytest&test_size=large&build_preset=relwithdebinfo
 ```
 
 При клике по ссылке:
@@ -773,31 +492,15 @@ http://your-server/workflow/trigger?owner=naspirato&repo=ydb&workflow_id=run_tes
 
 ### Быстрый запуск тестов (Badges)
 
-Таблица с быстрыми ссылками для запуска тестов с разными build presets:
+Вы можете создать badges для быстрого запуска workflows. Пример:
 
-| Build Type | Run Tests | Run Tests Fast |
-|------------|-----------|----------------|
-| **RelWithDebInfo** | [![Run Tests](https://img.shields.io/badge/▶_Run_Tests-RelWithDebInfo-4caf50)](http://51.250.33.238:8000/?owner=naspirato&repo=ydb&workflow_id=run_tests.yml&test_targets=ydb/tests/&test_type=pytest&test_size=large&build_preset=relwithdebinfo) | [![Run Tests](https://img.shields.io/badge/▶_Run_Tests_fast-RelWithDebInfo-4caf50)](http://51.250.33.238:8000/workflow/trigger?owner=naspirato&repo=ydb&workflow_id=acceptance_run.yml&ref=main&build_preset=relwithdebinfo&runner_label=auto-provisioned) |
-| **MSan** | [![Run Tests](https://img.shields.io/badge/▶_Run_Tests-MSan-4caf50)](http://51.250.33.238:8000/?owner=naspirato&repo=ydb&workflow_id=run_tests.yml&test_targets=ydb/tests/&test_type=pytest&test_size=large&build_preset=release-msan) | [![Run Tests](https://img.shields.io/badge/▶_Run_Tests_fast-MSan-4caf50)](http://51.250.33.238:8000/workflow/trigger?owner=naspirato&repo=ydb&workflow_id=acceptance_run.yml&ref=main&build_preset=release-msan&runner_label=auto-provisioned) |
-| **ASan** | [![Run Tests](https://img.shields.io/badge/▶_Run_Tests-ASan-4caf50)](http://51.250.33.238:8000/?owner=naspirato&repo=ydb&workflow_id=run_tests.yml&test_targets=ydb/tests/&test_type=pytest&test_size=large&build_preset=release-asan) | [![Run Tests](https://img.shields.io/badge/▶_Run_Tests_fast-ASan-4caf50)](http://51.250.33.238:8000/workflow/trigger?owner=naspirato&repo=ydb&workflow_id=acceptance_run.yml&ref=main&build_preset=release-asan&runner_label=auto-provisioned) |
-| **TSan** | [![Run Tests](https://img.shields.io/badge/▶_Run_Tests-TSan-4caf50)](http://51.250.33.238:8000/?owner=naspirato&repo=ydb&workflow_id=run_tests.yml&test_targets=ydb/tests/&test_type=pytest&test_size=large&build_preset=release-tsan) | [![Run Tests](https://img.shields.io/badge/▶_Run_Tests_fast-TSan-4caf50)](http://51.250.33.238:8000/workflow/trigger?owner=naspirato&repo=ydb&workflow_id=acceptance_run.yml&ref=main&build_preset=release-tsan&runner_label=auto-provisioned) |
-
-### Через curl (с OAuth сессией)
-
-1. Авторизуйтесь один раз в браузере
-2. Скопируйте cookie сессии из браузера
-3. Используйте в curl:
-
-```bash
-# HTML результат
-curl "http://your-server/workflow/trigger?owner=owner_name&repo=my-repo&workflow_id=ci.yml&ref=main&tests=unit,integration" \
-  -H "Cookie: session=YOUR_SESSION_COOKIE"
-
-# JSON результат
-curl "http://your-server/workflow/trigger?owner=owner_name&repo=my-repo&workflow_id=ci.yml" \
-  -H "Cookie: session=YOUR_SESSION_COOKIE" \
-  -H "Accept: application/json"
+```markdown
+[![Run Tests](https://img.shields.io/badge/▶_Run_Tests-RelWithDebInfo-4caf50)](http://your-server/?owner=owner&repo=repo&workflow_id=run_tests.yml&test_targets=tests/&test_type=pytest&build_preset=relwithdebinfo)
 ```
+
+**Формат ссылки:**
+- Для открытия формы: `http://your-server/?owner=...&repo=...&workflow_id=...&параметры`
+- Для прямого запуска: `http://your-server/workflow/trigger?owner=...&repo=...&workflow_id=...&параметры`
 
 ## API Endpoints
 
@@ -956,6 +659,260 @@ export BRANCH_FILTER_PATTERNS="^main$,^develop$,^release-.*"
 - В истории показывается как запущенный ботом
 - Workflow имеет права GitHub App
 
+## Настройка Workflow
+
+Ваш workflow должен поддерживать `workflow_dispatch` с inputs. Приложение автоматически определяет все inputs из YAML и создает соответствующие поля в форме.
+
+**Пример простого workflow:**
+
+```yaml
+name: CI Tests
+
+on:
+  workflow_dispatch:
+    inputs:
+      tests:
+        description: 'Tests to run'
+        required: false
+        type: string
+        default: 'unit'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run tests
+        run: |
+          echo "Running tests: ${{ inputs.tests }}"
+          # Ваши команды для запуска тестов
+```
+
+**Пример workflow с разными типами inputs:**
+
+```yaml
+name: Advanced Workflow
+
+on:
+  workflow_dispatch:
+    inputs:
+      test_targets:
+        description: 'Test targets to run'
+        required: true
+        type: string
+      test_type:
+        description: 'Type of tests'
+        required: false
+        type: choice
+        options:
+          - pytest
+          - unittest
+          - integration
+        default: 'pytest'
+      test_size:
+        description: 'Test size'
+        required: false
+        type: choice
+        options:
+          - small
+          - medium
+          - large
+      build_preset:
+        description: 'Build preset'
+        required: false
+        type: string
+        default: 'release'
+      enable_debug:
+        description: 'Enable debug mode'
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run tests
+        run: |
+          echo "Test targets: ${{ inputs.test_targets }}"
+          echo "Test type: ${{ inputs.test_type }}"
+          echo "Test size: ${{ inputs.test_size }}"
+          echo "Build preset: ${{ inputs.build_preset }}"
+          echo "Debug: ${{ inputs.enable_debug }}"
+```
+
+Приложение автоматически создаст форму с:
+- Текстовым полем для `test_targets` (required)
+- Выпадающим списком для `test_type` с опциями pytest/unittest/integration
+- Выпадающим списком для `test_size` с опциями small/medium/large
+- Текстовым полем для `build_preset` с дефолтным значением
+- Чекбоксом для `enable_debug`
+
+## Запуск локально
+
+```bash
+# Простой запуск
+python app.py
+
+# Или с uvicorn
+uvicorn app:app --host 0.0.0.0 --port 8000 --reload
+```
+
+Приложение будет доступно по адресу: http://localhost:8000
+
+### Запуск в фоне (после отключения от SSH)
+
+#### Вариант 1: Использование скриптов start.sh/stop.sh (рекомендуется)
+
+```bash
+# Запуск в фоне
+./start.sh
+
+# Проверка логов
+tail -f nohup.out
+
+# Остановка
+./stop.sh
+```
+
+Скрипт автоматически:
+- Активирует виртуальное окружение
+- Запускает приложение с `nohup` (не завершится при отключении от SSH)
+- Сохраняет PID процесса в файл `app.pid`
+- Записывает логи в `nohup.out`
+
+#### Вариант 2: Ручной запуск с nohup
+
+```bash
+# Активируйте виртуальное окружение
+source venv/bin/activate
+
+# Запустите с nohup
+nohup uvicorn app:app --host 0.0.0.0 --port 8000 > nohup.out 2>&1 &
+
+# Сохраните PID (выведется после запуска)
+echo $! > app.pid
+
+# Для остановки
+kill $(cat app.pid)
+```
+
+#### Вариант 3: Использование systemd (для production) ⭐ РЕКОМЕНДУЕТСЯ
+
+**Преимущества:**
+- ✅ Автоматический запуск при перезагрузке системы
+- ✅ Автоматический перезапуск при падении приложения
+- ✅ Управление через systemctl
+- ✅ Логи в systemd journal
+
+**Настройка:**
+
+Адаптировать `/github-action-executor.service`
+
+**Управление сервисом:**
+
+```bash
+# Запустить сервис
+sudo systemctl start github-action-executor
+
+# Остановить сервис
+sudo systemctl stop github-action-executor
+
+# Перезапустить сервис
+sudo systemctl restart github-action-executor
+
+# Проверить статус
+sudo systemctl status github-action-executor
+
+# Включить автозапуск при загрузке системы
+sudo systemctl enable github-action-executor
+
+# Отключить автозапуск
+sudo systemctl disable github-action-executor
+
+# Просмотр логов
+sudo journalctl -u github-action-executor -f
+
+# Просмотр последних 50 строк логов
+sudo journalctl -u github-action-executor -n 50
+```
+
+**Если нужно изменить настройки:**
+
+1. Отредактируйте service файл:
+```bash
+# Отредактируйте исходный файл проекта:
+nano github-action-executor.service
+
+# Замените плейсхолдеры:
+# - YOUR_USERNAME на ваше имя пользователя
+# - /path/to/github_action_executor на полный путь к директории проекта
+
+# Скопируйте в systemd:
+sudo cp github-action-executor.service /etc/systemd/system/
+```
+
+2. Перезагрузите systemd и перезапустите сервис:
+```bash
+sudo systemctl daemon-reload
+sudo systemctl restart github-action-executor
+```
+
+#### Вариант 4: Использование screen или tmux
+
+```bash
+# Установите screen (если не установлен)
+sudo apt-get install screen  # для Ubuntu/Debian
+# или
+sudo yum install screen      # для CentOS/RHEL
+
+# Запустите screen сессию
+screen -S gax
+
+# Внутри screen запустите приложение
+source venv/bin/activate
+uvicorn app:app --host 0.0.0.0 --port 8000
+
+# Отключитесь от screen: нажмите Ctrl+A, затем D
+
+# Вернуться к сессии
+screen -r gax
+
+# Список всех сессий
+screen -ls
+```
+
+## Использование Docker
+
+```bash
+# Соберите образ
+docker build -t github-action-executor .
+
+# Запустите контейнер
+docker run -p 8000:8000 --env-file .env \
+  -v $(pwd)/github-app-private-key.pem:/app/github-app-private-key.pem:ro \
+  github-action-executor
+```
+
+Или используйте docker-compose:
+
+```bash
+docker-compose up -d
+```
+
+## Развертывание в Yandex Cloud
+
+Подробные инструкции по развертыванию в Yandex Cloud см. в файле [yandex-cloud-deploy.md](yandex-cloud-deploy.md)
+
+### Быстрый старт с Cloud Run:
+
+1. Соберите Docker образ
+2. Загрузите в Yandex Container Registry
+3. Создайте Cloud Run сервис
+4. Настройте переменные окружения
+5. Создайте API Gateway для публичного доступа
+
 ## Безопасность
 
 - ✅ Используется GitHub App вместо PAT
@@ -1031,4 +988,3 @@ MIT
 ## Поддержка
 
 Если у вас возникли вопросы или проблемы, создайте issue в репозитории.
-
