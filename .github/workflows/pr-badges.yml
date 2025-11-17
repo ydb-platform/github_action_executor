@@ -29,8 +29,8 @@ jobs:
             
             const badgeComment = comments.data.find(comment => 
               comment.user.type === 'Bot' && 
-              comment.body.includes('▶ Run Tests') &&
-              comment.body.includes('▶ Backport')
+              (comment.body.includes('▶ Run Tests') || comment.body.includes('Run Tests (Direct)')) &&
+              (comment.body.includes('▶ Backport') || comment.body.includes('Backport (Direct)'))
             );
             
             core.setOutput('comment_id', badgeComment ? badgeComment.id : '');
@@ -64,16 +64,25 @@ jobs:
             // Build URLs for workflows
             // ref=baseBranch - workflow file is taken from target branch
             // pr_branch=prBranch - workflow should test/backport from PR branch
-            const testUrl = `${appDomain}/workflow/trigger?owner=${repoOwner}&repo=${repoName}&workflow_id=test.yml&ref=${baseBranch}&pr_branch=${prBranch}&test_type=all&from_pr=${prNumber}`;
-            const backportUrl = `${appDomain}/workflow/trigger?owner=${repoOwner}&repo=${repoName}&workflow_id=backport.yml&ref=${baseBranch}&source_branch=${prBranch}&target_branch=${baseBranch}&from_pr=${prNumber}`;
+            
+            // Test workflow URLs
+            const testUrlDirect = `${appDomain}/workflow/trigger?owner=${repoOwner}&repo=${repoName}&workflow_id=test.yml&ref=${baseBranch}&pr_branch=${prBranch}&test_type=all&from_pr=${prNumber}`;
+            const testUrlUI = `${appDomain}/workflow/trigger?owner=${repoOwner}&repo=${repoName}&workflow_id=test.yml&ref=${baseBranch}&pr_branch=${prBranch}&test_type=all&from_pr=${prNumber}&ui=true`;
+            
+            // Backport workflow URLs
+            const backportUrlDirect = `${appDomain}/workflow/trigger?owner=${repoOwner}&repo=${repoName}&workflow_id=backport.yml&ref=${baseBranch}&source_branch=${prBranch}&target_branch=${backportTargetBranch}&from_pr=${prNumber}`;
+            const backportUrlUI = `${appDomain}/workflow/trigger?owner=${repoOwner}&repo=${repoName}&workflow_id=backport.yml&ref=${baseBranch}&source_branch=${prBranch}&target_branch=${backportTargetBranch}&from_pr=${prNumber}&ui=true`;
             
             const comment = '## 🚀 Quick Actions\n\n' +
-              'Use these badges to quickly run workflows for this PR:\n\n' +
-              '[![▶ Run Tests](https://img.shields.io/badge/▶_Run_Tests-4caf50?style=flat-square)](' + testUrl + ')\n' +
-              '[![▶ Backport](https://img.shields.io/badge/▶_Backport-2196f3?style=flat-square)](' + backportUrl + ')\n\n' +
-              '### Direct Links:\n' +
-              '- [Run Tests](' + testUrl + ')\n' +
-              '- [Backport to ' + backportTargetBranch + '](' + backportUrl + ')\n\n' +
+              'Use these buttons to quickly run workflows for this PR:\n\n' +
+              '### 🧪 Run Tests\n' +
+              '[![▶ Run Tests (Direct)](https://img.shields.io/badge/▶_Run_Tests_Direct-4caf50?style=flat-square)](' + testUrlDirect + ') ' +
+              '[![⚙️ Run Tests (Configure)](https://img.shields.io/badge/⚙️_Run_Tests_Configure-ff9800?style=flat-square)](' + testUrlUI + ')\n\n' +
+              '### 📦 Backport\n' +
+              '[![▶ Backport (Direct)](https://img.shields.io/badge/▶_Backport_Direct-2196f3?style=flat-square)](' + backportUrlDirect + ') ' +
+              '[![⚙️ Backport (Configure)](https://img.shields.io/badge/⚙️_Backport_Configure-ff9800?style=flat-square)](' + backportUrlUI + ')\n\n' +
+              '**Direct** - immediately runs the workflow with default parameters.\n' +
+              '**Configure** - opens UI to review and modify parameters before running.\n\n' +
               '---\n' +
               '*These links will automatically comment on this PR with the workflow results.*';
 
@@ -113,16 +122,25 @@ jobs:
             // Build URLs for workflows
             // ref=baseBranch - workflow file is taken from target branch
             // pr_branch=prBranch - workflow should test/backport from PR branch
-            const testUrl = `${appDomain}/workflow/trigger?owner=${repoOwner}&repo=${repoName}&workflow_id=test.yml&ref=${baseBranch}&pr_branch=${prBranch}&test_type=all&from_pr=${prNumber}`;
-            const backportUrl = `${appDomain}/workflow/trigger?owner=${repoOwner}&repo=${repoName}&workflow_id=backport.yml&ref=${baseBranch}&source_branch=${prBranch}&target_branch=${baseBranch}&from_pr=${prNumber}`;
+            
+            // Test workflow URLs
+            const testUrlDirect = `${appDomain}/workflow/trigger?owner=${repoOwner}&repo=${repoName}&workflow_id=test.yml&ref=${baseBranch}&pr_branch=${prBranch}&test_type=all&from_pr=${prNumber}`;
+            const testUrlUI = `${appDomain}/workflow/trigger?owner=${repoOwner}&repo=${repoName}&workflow_id=test.yml&ref=${baseBranch}&pr_branch=${prBranch}&test_type=all&from_pr=${prNumber}&ui=true`;
+            
+            // Backport workflow URLs
+            const backportUrlDirect = `${appDomain}/workflow/trigger?owner=${repoOwner}&repo=${repoName}&workflow_id=backport.yml&ref=${baseBranch}&source_branch=${prBranch}&target_branch=${backportTargetBranch}&from_pr=${prNumber}`;
+            const backportUrlUI = `${appDomain}/workflow/trigger?owner=${repoOwner}&repo=${repoName}&workflow_id=backport.yml&ref=${baseBranch}&source_branch=${prBranch}&target_branch=${backportTargetBranch}&from_pr=${prNumber}&ui=true`;
             
             const comment = '## 🚀 Quick Actions\n\n' +
-              'Use these badges to quickly run workflows for this PR:\n\n' +
-              '[![▶ Run Tests](https://img.shields.io/badge/▶_Run_Tests-4caf50?style=flat-square)](' + testUrl + ')\n' +
-              '[![▶ Backport](https://img.shields.io/badge/▶_Backport-2196f3?style=flat-square)](' + backportUrl + ')\n\n' +
-              '### Direct Links:\n' +
-              '- [Run Tests](' + testUrl + ')\n' +
-              '- [Backport to ' + backportTargetBranch + '](' + backportUrl + ')\n\n' +
+              'Use these buttons to quickly run workflows for this PR:\n\n' +
+              '### 🧪 Run Tests\n' +
+              '[![▶ Run Tests (Direct)](https://img.shields.io/badge/▶_Run_Tests_Direct-4caf50?style=flat-square)](' + testUrlDirect + ') ' +
+              '[![⚙️ Run Tests (Configure)](https://img.shields.io/badge/⚙️_Run_Tests_Configure-ff9800?style=flat-square)](' + testUrlUI + ')\n\n' +
+              '### 📦 Backport\n' +
+              '[![▶ Backport (Direct)](https://img.shields.io/badge/▶_Backport_Direct-2196f3?style=flat-square)](' + backportUrlDirect + ') ' +
+              '[![⚙️ Backport (Configure)](https://img.shields.io/badge/⚙️_Backport_Configure-ff9800?style=flat-square)](' + backportUrlUI + ')\n\n' +
+              '**Direct** - immediately runs the workflow with default parameters.\n' +
+              '**Configure** - opens UI to review and modify parameters before running.\n\n' +
               '---\n' +
               '*These links will automatically comment on this PR with the workflow results.*';
 
