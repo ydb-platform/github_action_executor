@@ -62,8 +62,10 @@ jobs:
             const repoName = context.repo.repo;
             
             // Build URLs for workflows
-            const testUrl = `${appDomain}/workflow/trigger?owner=${repoOwner}&repo=${repoName}&workflow_id=test.yml&ref=${prBranch}&test_type=all&from_pr=${prNumber}`;
-            const backportUrl = `${appDomain}/workflow/trigger?owner=${repoOwner}&repo=${repoName}&workflow_id=backport.yml&ref=${prBranch}&source_branch=${baseBranch}&target_branch=${backportTargetBranch}&from_pr=${prNumber}`;
+            // ref=baseBranch - workflow file is taken from target branch
+            // pr_branch=prBranch - workflow should test/backport from PR branch
+            const testUrl = `${appDomain}/workflow/trigger?owner=${repoOwner}&repo=${repoName}&workflow_id=test.yml&ref=${baseBranch}&pr_branch=${prBranch}&test_type=all&from_pr=${prNumber}`;
+            const backportUrl = `${appDomain}/workflow/trigger?owner=${repoOwner}&repo=${repoName}&workflow_id=backport.yml&ref=${baseBranch}&source_branch=${prBranch}&target_branch=${baseBranch}&from_pr=${prNumber}`;
             
             const comment = '## 🚀 Quick Actions\n\n' +
               'Use these badges to quickly run workflows for this PR:\n\n' +
@@ -109,8 +111,10 @@ jobs:
             const repoName = context.repo.repo;
             
             // Build URLs for workflows
-            const testUrl = `${appDomain}/workflow/trigger?owner=${repoOwner}&repo=${repoName}&workflow_id=test.yml&ref=${prBranch}&test_type=all&from_pr=${prNumber}`;
-            const backportUrl = `${appDomain}/workflow/trigger?owner=${repoOwner}&repo=${repoName}&workflow_id=backport.yml&ref=${prBranch}&source_branch=${baseBranch}&target_branch=${backportTargetBranch}&from_pr=${prNumber}`;
+            // ref=baseBranch - workflow file is taken from target branch
+            // pr_branch=prBranch - workflow should test/backport from PR branch
+            const testUrl = `${appDomain}/workflow/trigger?owner=${repoOwner}&repo=${repoName}&workflow_id=test.yml&ref=${baseBranch}&pr_branch=${prBranch}&test_type=all&from_pr=${prNumber}`;
+            const backportUrl = `${appDomain}/workflow/trigger?owner=${repoOwner}&repo=${repoName}&workflow_id=backport.yml&ref=${baseBranch}&source_branch=${prBranch}&target_branch=${baseBranch}&from_pr=${prNumber}`;
             
             const comment = '## 🚀 Quick Actions\n\n' +
               'Use these badges to quickly run workflows for this PR:\n\n' +

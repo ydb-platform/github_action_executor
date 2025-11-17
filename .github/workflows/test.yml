@@ -12,6 +12,10 @@ on:
           - unit
           - integration
         default: 'all'
+      pr_branch:
+        description: 'PR branch to test (optional, if not set - uses workflow ref branch)'
+        required: false
+        type: string
       from_pr:
         description: 'PR number to comment on (optional)'
         required: false
@@ -23,6 +27,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.pr_branch != '' && inputs.pr_branch || github.ref }}
 
       - name: Set up Python
         uses: actions/setup-python@v5
