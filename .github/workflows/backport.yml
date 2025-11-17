@@ -28,7 +28,6 @@ jobs:
       contents: write
       issues: write
       pull-requests: write
-      workflows: write
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -90,23 +89,21 @@ jobs:
 
       - name: Backport specific commit
         if: inputs.commit_sha != ''
-        run: |
-          echo "Backporting commit ${{ inputs.commit_sha }}"
-          git cherry-pick "${{ inputs.commit_sha }}" || {
-            echo "Cherry-pick failed, this might be due to conflicts"
-            exit 1
-          }
-
-      - name: Backport specific commit
-        if: inputs.commit_sha != ''
         id: backport_specific
         run: |
           echo "Backporting commit ${{ inputs.commit_sha }}"
+          # Create a branch name for the PR
+          BACKPORT_BRANCH="backport/${{ inputs.target_branch }}-$(date +%s)"
+          git checkout -b "$BACKPORT_BRANCH" "${{ inputs.target_branch }}"
+          
+          # Cherry-pick the commit
           git cherry-pick "${{ inputs.commit_sha }}" || {
             echo "Cherry-pick failed, this might be due to conflicts"
             exit 1
           }
+          
           echo "has_changes=true" >> $GITHUB_OUTPUT
+          echo "backport_branch=$BACKPORT_BRANCH" >> $GITHUB_OUTPUT
 
       - name: Backport all commits from source branch
         if: inputs.commit_sha == ''
@@ -123,12 +120,18 @@ jobs:
             exit 0
           fi
           
+          # Create a branch name for the PR
+          BACKPORT_BRANCH="backport/${{ inputs.target_branch }}-$(date +%s)"
+          git checkout -b "$BACKPORT_BRANCH" "${{ inputs.target_branch }}"
+          
           # Cherry-pick all commits
           git cherry-pick origin/"${{ inputs.target_branch }}"..origin/"${{ inputs.source_branch }}" || {
             echo "Cherry-pick failed, this might be due to conflicts"
             exit 1
           }
+          
           echo "has_changes=true" >> $GITHUB_OUTPUT
+          echo "backport_branch=$BACKPORT_BRANCH" >> $GITHUB_OUTPUT
 
       - name: Create PR for backport
         if: |
@@ -143,12 +146,12 @@ jobs:
             const commitSha = '${{ inputs.commit_sha }}';
             const prNumber = '${{ inputs.from_pr }}';
             
-            // Create a branch name for the PR
-            const backportBranch = `backport/${targetBranch}-${Date.now()}`;
+            // Get backport branch name from previous step
+            const backportBranch = '${{ inputs.commit_sha != '' && steps.backport_specific.outputs.backport_branch || steps.backport_all.outputs.backport_branch }}';
             
             // Push the backport branch
             const { execSync } = require('child_process');
-            execSync(`git push origin HEAD:${backportBranch}`, { stdio: 'inherit' });
+            execSync(`git push origin ${backportBranch}`, { stdio: 'inherit' });
             
             // Create PR
             const prTitle = `Backport to ${targetBranch}`;
