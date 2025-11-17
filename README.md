@@ -178,34 +178,44 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-    Start([Настройка]) --> Step1[1. Создать OAuth App<br/>📍 github.com/settings/developers]
-    Step1 --> GetOAuth[Получить Client ID<br/>и Client Secret]
+    Start([Начало настройки]) --> Who{Кто настраивает?}
     
-    GetOAuth --> Step2[2. Создать GitHub App<br/>📍 github.com/settings/apps]
-    Step2 --> SetPerms[Установить права:<br/>Actions: Read/Write<br/>Contents: Read-only]
-    SetPerms --> GetKey[Скачать Private Key<br/>.pem файл]
-    GetKey --> GetAppID[Получить App ID]
+    Who -->|Админ приложения| AdminApp[👤 Админ приложения]
+    Who -->|Админ репозитория| AdminRepo[👤 Админ репозитория]
     
-    GetAppID --> Step3[3. Установить GitHub App<br/>📍 В репозитории/организации]
-    Step3 --> Choose{Куда?}
-    Choose -->|Репозиторий| Repo[Settings → Integrations]
-    Choose -->|Организация| Org[Org Settings → GitHub Apps]
-    Choose -->|Аккаунт| Account[Settings → Applications]
+    AdminApp --> Step1[1️⃣ Создать OAuth App<br/>📍 Settings → Developer settings → OAuth Apps<br/>🔗 github.com/settings/developers]
+    Step1 --> GetOAuth[📋 Получить:<br/>• Client ID<br/>• Client Secret]
     
-    Repo --> GetInstallID[Получить Installation ID<br/>из URL установки]
+    GetOAuth --> Step2[2️⃣ Создать GitHub App<br/>📍 Settings → Developer settings → GitHub Apps<br/>🔗 github.com/settings/apps]
+    Step2 --> SetPerms[⚙️ Установить права:<br/>• Actions: Read/Write<br/>• Contents: Read-only]
+    SetPerms --> GetAppCreds[📋 Получить:<br/>• App ID<br/>• Private Key .pem]
+    
+    GetAppCreds --> Step3[3️⃣ Установить GitHub App]
+    AdminRepo --> Step3
+    
+    Step3 --> Choose{Куда установить?}
+    Choose -->|В репозиторий| Repo[📍 Settings → Integrations<br/>🔗 github.com/OWNER/REPO/settings/installations]
+    Choose -->|В организацию| Org[📍 Org Settings → GitHub Apps<br/>🔗 github.com/organizations/ORG/settings/installations]
+    Choose -->|На аккаунт| Account[📍 Settings → Applications<br/>🔗 github.com/settings/installations]
+    
+    Repo --> GetInstallID[📋 Получить Installation ID<br/>из URL: .../installations/12345678]
     Org --> GetInstallID
     Account --> GetInstallID
     
-    GetInstallID --> Step4[4. Настроить .env<br/>Все credentials]
-    Step4 --> Step5[5. Запустить приложение]
-    Step5 --> Ready[✅ Готово к работе]
+    GetInstallID --> Step4[4️⃣ Настроить .env файл<br/>👤 Админ приложения]
+    Step4 --> EnvVars[📝 Добавить переменные:<br/>GITHUB_CLIENT_ID<br/>GITHUB_CLIENT_SECRET<br/>GITHUB_APP_ID<br/>GITHUB_APP_INSTALLATION_ID<br/>GITHUB_APP_PRIVATE_KEY_PATH]
     
-    classDef step fill:#e3f2fd,stroke:#1976d2,stroke-width:2px
-    classDef action fill:#fff3e0,stroke:#f57c00,stroke-width:2px
-    classDef success fill:#e8f5e9,stroke:#388e3c,stroke-width:2px
+    EnvVars --> Step5[5️⃣ Запустить приложение]
+    Step5 --> Ready[✅ Готово!]
     
+    classDef admin fill:#e3f2fd,stroke:#1976d2,stroke-width:2px
+    classDef step fill:#fff3e0,stroke:#f57c00,stroke-width:2px
+    classDef action fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px
+    classDef success fill:#e8f5e9,stroke:#388e3c,stroke-width:3px
+    
+    class AdminApp,AdminRepo admin
     class Step1,Step2,Step3,Step4,Step5 step
-    class GetOAuth,SetPerms,GetKey,GetAppID,GetInstallID action
+    class GetOAuth,SetPerms,GetAppCreds,GetInstallID,EnvVars action
     class Ready success
 ```
 
@@ -254,20 +264,81 @@ pip install -r requirements.txt
 
 ### 2. Настройка GitHub
 
-**Создайте OAuth App:**
-- Перейдите в [GitHub Settings > Developer settings > OAuth Apps](https://github.com/settings/developers)
-- Создайте новое приложение
-- Укажите callback URL: `http://localhost:8000/auth/github/callback`
-- Сохраните Client ID и Client Secret
+#### 👤 Администратор приложения
 
-**Создайте GitHub App:**
-- Перейдите в [GitHub Settings > Developer settings > GitHub Apps](https://github.com/settings/apps)
-- Создайте новое приложение с правами:
-  - Actions: Read and write
-  - Contents: Read-only
-  - Metadata: Read-only
-- Сгенерируйте Private key и установите приложение в репозиторий
-- Сохраните App ID и Installation ID
+**Создание OAuth App:**
+
+1. **Перейдите в настройки:**
+   - GitHub → Ваш профиль (правый верхний угол) → **Settings**
+   - Или напрямую: https://github.com/settings/profile
+
+2. **Откройте Developer settings:**
+   - В левом меню: **Developer settings**
+   - Или напрямую: https://github.com/settings/apps
+
+3. **Создайте OAuth App:**
+   - Вкладка **OAuth Apps** → кнопка **New OAuth App**
+   - Или напрямую: https://github.com/settings/developers/new
+
+4. **Заполните форму:**
+   - **Application name**: GitHub Action Executor (или любое имя)
+   - **Homepage URL**: `http://localhost:8000` (для локальной разработки)
+   - **Authorization callback URL**: `http://localhost:8000/auth/github/callback`
+
+5. **Получите credentials:**
+   - После создания откроется страница приложения
+   - **Client ID** — виден сразу на странице
+   - **Client Secret** — нажмите **Generate a new client secret**, скопируйте секрет (показывается только один раз!)
+
+**Создание GitHub App:**
+
+1. **Перейдите в Developer settings:**
+   - GitHub → Settings → **Developer settings**
+   - Или напрямую: https://github.com/settings/apps
+
+2. **Создайте GitHub App:**
+   - Вкладка **GitHub Apps** → кнопка **New GitHub App**
+   - Или напрямую: https://github.com/settings/apps/new
+
+3. **Заполните основную информацию:**
+   - **GitHub App name**: GitHub Action Executor (или любое имя)
+   - **Homepage URL**: `http://localhost:8000`
+   - **User authorization callback URL**: `http://localhost:8000/auth/github/callback`
+
+4. **Настройте права (Permissions):**
+   - **Actions**: Read and write
+   - **Contents**: Read-only
+   - **Metadata**: Read-only (включено по умолчанию)
+
+5. **Получите App ID и Private Key:**
+   - После создания откроется страница приложения
+   - **App ID** — виден сразу на странице (например: `123456`)
+   - **Private keys** — нажмите **Generate a private key**, скачайте `.pem` файл (сохраните его, он больше не будет показан!)
+
+#### 👤 Администратор организации/репозитория
+
+**Установка GitHub App:**
+
+1. **Перейдите на страницу GitHub App:**
+   - Попросите администратора приложения предоставить ссылку на созданный GitHub App
+   - Или найдите приложение в списке: Settings → Developer settings → GitHub Apps
+
+2. **Установите приложение:**
+   - На странице GitHub App нажмите **Install App**
+   - Или перейдите в настройки организации/репозитория:
+     - **Для репозитория**: Settings → Integrations → GitHub Apps → Configure
+     - **Для организации**: Organization Settings → GitHub Apps → Configure
+     - **Для аккаунта**: Settings → Applications → Installed GitHub Apps → Configure
+
+3. **Выберите где установить:**
+   - Выберите репозиторий, организацию или аккаунт
+   - Нажмите **Install**
+
+4. **Получите Installation ID:**
+   - После установки откроется страница установки
+   - **Installation ID** находится в URL: `https://github.com/settings/installations/12345678`
+   - Скопируйте число после `/installations/` (например: `12345678`)
+   - **Передайте Installation ID администратору приложения** для настройки переменных окружения
 
 ### 3. Настройка переменных окружения
 
