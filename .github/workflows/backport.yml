@@ -150,7 +150,15 @@ jobs:
             const backportBranch = '${{ inputs.commit_sha != '' && steps.backport_specific.outputs.backport_branch || steps.backport_all.outputs.backport_branch }}';
             
             // Push the backport branch
+            // GITHUB_TOKEN cannot modify workflow files, so we need PAT or GitHub App token
+            // Try to use PAT first (if configured), otherwise fallback to GITHUB_TOKEN
+            const patToken = '${{ secrets.BACKPORT_PAT }}';
+            const token = patToken && patToken.trim() !== '' ? patToken : '${{ secrets.GITHUB_TOKEN }}';
+            const repoUrl = `https://${token}@github.com/${context.repo.owner}/${context.repo.repo}.git`;
             const { execSync } = require('child_process');
+            
+            // Configure git to use token for push
+            execSync(`git remote set-url origin ${repoUrl}`, { stdio: 'inherit' });
             execSync(`git push origin ${backportBranch}`, { stdio: 'inherit' });
             
             // Create PR

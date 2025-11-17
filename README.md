@@ -187,7 +187,7 @@ flowchart TD
     Step1 --> GetOAuth[📋 Получить:<br/>• Client ID<br/>• Client Secret]
     
     GetOAuth --> Step2[2️⃣ Создать GitHub App<br/>📍 Settings → Developer settings → GitHub Apps<br/>🔗 github.com/settings/apps]
-    Step2 --> SetPerms[⚙️ Установить права:<br/>• Actions: Read/Write<br/>• Contents: Read-only<br/>• Issues: Write]
+    Step2 --> SetPerms[⚙️ Установить права:<br/>• Actions: Read/Write<br/>• Contents: Read-only<br/>• Issues: Write<br/>• Workflows: Write]
     SetPerms --> GetAppCreds[📋 Получить:<br/>• App ID<br/>• Private Key .pem]
     
     GetAppCreds --> Step3[3️⃣ Установить GitHub App]
@@ -307,8 +307,9 @@ pip install -r requirements.txt
 
 4. **Настройте права (Permissions):**
    - **Actions**: Read and write
-   - **Contents**: Read-only
+   - **Contents**: Read-only (или Read and write, если нужен backport с изменениями файлов)
    - **Issues**: Write (требуется для создания комментариев в issues и PR)
+   - **Workflows**: Write (требуется для изменения workflow файлов при backport)
    - **Metadata**: Read-only (включено по умолчанию)
 
 5. **Получите App ID и Private Key:**
