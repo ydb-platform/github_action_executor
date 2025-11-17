@@ -1,0 +1,177 @@
+name: Backport
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_branch:
+        description: 'Source branch to backport from (e.g., main, develop)'
+        required: true
+        type: string
+        default: 'main'
+      target_branch:
+        description: 'Target branch to backport to (e.g., release/v1.0, stable)'
+        required: true
+        type: string
+      commit_sha:
+        description: 'Specific commit SHA to backport (optional, if empty - backport all commits)'
+        required: false
+        type: string
+      from_pr:
+        description: 'PR number to comment on (optional)'
+        required: false
+        type: string
+
+jobs:
+  backport:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Comment on PR (started)
+        if: inputs.from_pr != ''
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const prNumber = parseInt('${{ inputs.from_pr }}');
+            const sourceBranch = '${{ inputs.source_branch }}';
+            const targetBranch = '${{ inputs.target_branch }}';
+            const workflowRunUrl = `${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}`;
+            
+            const comment = `🔄 **Backport started**
+            
+            - Source: \`${sourceBranch}\`
+            - Target: \`${targetBranch}\`
+            - Workflow run: [View run](${workflowRunUrl})
+            - Status: ⏳ In progress...`;
+            
+            github.rest.issues.createComment({
+              issue_number: prNumber,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: comment
+            });
+
+      - name: Check if target branch exists
+        id: check_branch
+        run: |
+          if git ls-remote --heads origin "${{ inputs.target_branch }}" | grep -q "${{ inputs.target_branch }}"; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+            echo "Target branch ${{ inputs.target_branch }} exists"
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+            echo "Target branch ${{ inputs.target_branch }} does not exist, will be created"
+          fi
+
+      - name: Create target branch if not exists
+        if: steps.check_branch.outputs.exists == 'false'
+        run: |
+          git checkout -b "${{ inputs.target_branch }}" origin/"${{ inputs.source_branch }}"
+          git push origin "${{ inputs.target_branch }}"
+
+      - name: Checkout target branch
+        if: steps.check_branch.outputs.exists == 'true'
+        run: |
+          git checkout "${{ inputs.target_branch }}"
+          git pull origin "${{ inputs.target_branch }}"
+
+      - name: Backport specific commit
+        if: inputs.commit_sha != ''
+        run: |
+          echo "Backporting commit ${{ inputs.commit_sha }}"
+          git cherry-pick "${{ inputs.commit_sha }}" || {
+            echo "Cherry-pick failed, this might be due to conflicts"
+            exit 1
+          }
+
+      - name: Backport all commits from source branch
+        if: inputs.commit_sha == ''
+        run: |
+          echo "Backporting all commits from ${{ inputs.source_branch }} to ${{ inputs.target_branch }}"
+          # Get commits that are in source but not in target
+          COMMITS=$(git log origin/"${{ inputs.target_branch }}"..origin/"${{ inputs.source_branch }}" --oneline | wc -l)
+          echo "Found $COMMITS commits to backport"
+          
+          if [ "$COMMITS" -eq 0 ]; then
+            echo "No commits to backport"
+            exit 0
+          fi
+          
+          # Cherry-pick all commits
+          git cherry-pick origin/"${{ inputs.target_branch }}"..origin/"${{ inputs.source_branch }}" || {
+            echo "Cherry-pick failed, this might be due to conflicts"
+            exit 1
+          }
+
+      - name: Push changes
+        run: |
+          git push origin "${{ inputs.target_branch }}"
+
+      - name: Comment on PR (success)
+        if: success() && inputs.from_pr != ''
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const prNumber = parseInt('${{ inputs.from_pr }}');
+            const sourceBranch = '${{ inputs.source_branch }}';
+            const targetBranch = '${{ inputs.target_branch }}';
+            const commitSha = '${{ inputs.commit_sha }}';
+            const workflowRunUrl = `${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}`;
+            
+            let backportInfo = '';
+            if (commitSha) {
+              backportInfo = `- Commit: \`${commitSha.substring(0, 7)}\``;
+            } else {
+              backportInfo = `- All commits from \`${sourceBranch}\``;
+            }
+            
+            const comment = `✅ **Backport completed successfully!**
+            
+            - Source: \`${sourceBranch}\`
+            - Target: \`${targetBranch}\`
+            ${backportInfo}
+            - Workflow run: [View run](${workflowRunUrl})
+            - Status: ✅ Success`;
+            
+            github.rest.issues.createComment({
+              issue_number: prNumber,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: comment
+            });
+
+      - name: Comment on PR (failure)
+        if: failure() && inputs.from_pr != ''
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const prNumber = parseInt('${{ inputs.from_pr }}');
+            const sourceBranch = '${{ inputs.source_branch }}';
+            const targetBranch = '${{ inputs.target_branch }}';
+            const workflowRunUrl = `${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}`;
+            
+            const comment = `❌ **Backport failed!**
+            
+            - Source: \`${sourceBranch}\`
+            - Target: \`${targetBranch}\`
+            - Workflow run: [View run](${workflowRunUrl})
+            - Status: ❌ Failed
+            - Possible reasons: merge conflicts or branch protection rules`;
+            
+            github.rest.issues.createComment({
+              issue_number: prNumber,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: comment
+            });
+

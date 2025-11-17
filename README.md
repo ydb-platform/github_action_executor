@@ -398,32 +398,154 @@ python app.py
 http://your-server/workflow/trigger?owner=owner&repo=my-repo&workflow_id=ci.yml&ref=main&tests=unit,integration
 ```
 
-### Workflow с параметрами
+### Примеры workflow
 
-Ваш workflow должен поддерживать `workflow_dispatch`:
+В репозитории есть два готовых примера workflow, которые можно использовать как шаблоны:
+
+#### 1. Тестовый workflow (`.github/workflows/test.yml`)
+
+Запускает тесты с возможностью комментирования в PR:
 
 ```yaml
-name: CI Tests
+name: Run Tests
 
 on:
   workflow_dispatch:
     inputs:
       test_type:
-        description: 'Type of tests'
+        description: 'Type of tests to run'
         required: false
         type: choice
         options:
-          - pytest
-          - unittest
-        default: 'pytest'
+          - all
+          - unit
+          - integration
+        default: 'all'
+      from_pr:
+        description: 'PR number to comment on (optional)'
+        required: false
+        type: string
+```
+
+**Использование:**
+- Запуск всех тестов: `test_type=all`
+- Запуск только unit тестов: `test_type=unit`
+- С комментарием в PR: `from_pr=123` (номер PR)
+
+**Пример запуска через веб-интерфейс:**
+- Выберите workflow: `test.yml`
+- `test_type`: `all` (или `unit`, `integration`)
+- `from_pr`: `123` (если хотите оставить комментарий в PR #123)
+
+#### 2. Backport workflow (`.github/workflows/backport.yml`)
+
+Переносит коммиты из одной ветки в другую:
+
+```yaml
+name: Backport
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_branch:
+        description: 'Source branch to backport from'
+        required: true
+        type: string
+        default: 'main'
+      target_branch:
+        description: 'Target branch to backport to'
+        required: true
+        type: string
+      commit_sha:
+        description: 'Specific commit SHA to backport (optional)'
+        required: false
+        type: string
+      from_pr:
+        description: 'PR number to comment on (optional)'
+        required: false
+        type: string
+```
+
+**Использование:**
+- Backport всех коммитов: укажите `source_branch` и `target_branch`
+- Backport конкретного коммита: добавьте `commit_sha`
+- С комментарием в PR: укажите `from_pr=123`
+
+**Пример запуска:**
+- `source_branch`: `main`
+- `target_branch`: `release/v1.0`
+- `commit_sha`: `abc1234` (опционально, для конкретного коммита)
+- `from_pr`: `123` (опционально, для комментария в PR)
+
+**Особенности:**
+- Автоматически создает целевую ветку, если её нет
+- Оставляет комментарии в PR при запуске, успехе и ошибке
+- Обрабатывает конфликты при cherry-pick
+
+#### 3. Автоматическое добавление badge в PR (`.github/workflows/pr-badges.yml`)
+
+Автоматически добавляет badge и ссылки для запуска workflow в каждый новый PR:
+
+```yaml
+name: Add PR Badges
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+```
+
+**Как это работает:**
+1. При открытии или обновлении PR автоматически добавляется комментарий
+2. В комментарии есть badge и прямые ссылки для запуска тестов и backport
+3. Ссылки уже содержат параметр `from_pr`, поэтому результаты автоматически появятся в PR
+
+**Настройка домена приложения:**
+
+1. **Через переменную репозитория (рекомендуется):**
+   - Перейдите в Settings → Secrets and variables → Actions
+   - Вкладка **Variables** → **New repository variable**
+   - Name: `APP_DOMAIN`
+   - Value: `https://your-app-domain.com` (ваш домен приложения)
+   - Нажмите **Add variable**
+
+2. **Или отредактируйте workflow напрямую:**
+   - Откройте `.github/workflows/pr-badges.yml`
+   - Найдите строку: `const appDomain = '${{ vars.APP_DOMAIN }}' || 'http://localhost:8000';`
+   - Замените на: `const appDomain = 'https://your-app-domain.com';`
+
+**Пример комментария в PR:**
+```markdown
+## 🚀 Quick Actions
+
+Use these badges to quickly run workflows for this PR:
+
+[![▶ Run Tests](badge)](link)
+[![▶ Backport](badge)](link)
+```
+
+### Создание своего workflow
+
+Ваш workflow должен поддерживать `workflow_dispatch`:
+
+```yaml
+name: My Workflow
+
+on:
+  workflow_dispatch:
+    inputs:
+      my_param:
+        description: 'My parameter'
+        required: false
+        type: string
+        default: 'default_value'
 
 jobs:
-  test:
+  my_job:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Run tests
-        run: echo "Running ${{ inputs.test_type }}"
+      - name: Do something
+        run: echo "Parameter: ${{ inputs.my_param }}"
 ```
 
 ## Лицензия
