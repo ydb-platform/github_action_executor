@@ -11,7 +11,7 @@ jobs:
       issues: write
       pull-requests: write
     env:
-      APP_DOMAIN: ${{ vars.APP_DOMAIN || 'http://localhost:8000' }}
+      APP_DOMAIN: ${{ vars.APP_DOMAIN }}
     steps:
       - name: Check if badge comment already exists
         id: check_comment
@@ -47,7 +47,9 @@ jobs:
             
             // Get app domain from environment variable
             // Set APP_DOMAIN in: Settings → Secrets and variables → Actions → Variables
-            const appDomain = process.env.APP_DOMAIN || 'http://localhost:8000';
+            const appDomain = process.env.APP_DOMAIN && process.env.APP_DOMAIN.trim() !== '' 
+              ? process.env.APP_DOMAIN 
+              : 'http://localhost:8000';
             const repoOwner = context.repo.owner;
             const repoName = context.repo.repo;
             
