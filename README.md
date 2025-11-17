@@ -88,25 +88,6 @@ http://your-server/workflow/trigger?owner=owner&repo=my-repo&workflow_id=ci.yml&
 - Добавьте ссылку в PR для запуска проверок
 - Используйте в документации для демонстрации workflows
 
-### 3. Автоматизация через REST API
-
-Для интеграции в CI/CD пайплайны и скрипты:
-
-```bash
-curl -X POST http://your-server/api/trigger \
-  -H "Content-Type: application/json" \
-  -H "Cookie: session=<your-session>" \
-  -d '{
-    "owner": "username",
-    "repo": "repo-name",
-    "workflow_id": "ci.yml",
-    "ref": "main",
-    "inputs": {
-      "test_targets": "tests/",
-      "test_type": "pytest"
-    }
-  }'
-```
 
 **Применение:**
 - Интеграция в CI/CD пайплайны
