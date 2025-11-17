@@ -138,6 +138,9 @@ jobs:
           (inputs.commit_sha != '' && steps.backport_specific.outputs.has_changes == 'true') ||
           (inputs.commit_sha == '' && steps.backport_all.outputs.has_changes == 'true')
         uses: actions/github-script@v7
+        env:
+          BACKPORT_PAT: ${{ secrets.BACKPORT_PAT }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
@@ -150,16 +153,45 @@ jobs:
             const backportBranch = '${{ inputs.commit_sha != '' && steps.backport_specific.outputs.backport_branch || steps.backport_all.outputs.backport_branch }}';
             
             // Push the backport branch
-            // GITHUB_TOKEN cannot modify workflow files, so we need PAT or GitHub App token
+            // GITHUB_TOKEN cannot modify workflow files, so we need PAT with workflow permission
             // Try to use PAT first (if configured), otherwise fallback to GITHUB_TOKEN
-            const patToken = '${{ secrets.BACKPORT_PAT }}';
-            const token = patToken && patToken.trim() !== '' ? patToken : '${{ secrets.GITHUB_TOKEN }}';
+            const patToken = process.env.BACKPORT_PAT;
+            const githubToken = process.env.GITHUB_TOKEN;
+            // Check if PAT is set (not empty)
+            const hasPat = patToken && patToken.trim() !== '';
+            const token = hasPat ? patToken : githubToken;
+            
             const repoUrl = `https://${token}@github.com/${context.repo.owner}/${context.repo.repo}.git`;
             const { execSync } = require('child_process');
             
+            if (!hasPat) {
+              console.log('WARNING: BACKPORT_PAT secret not found. Using GITHUB_TOKEN.');
+              console.log('GITHUB_TOKEN cannot modify workflow files. If you need to backport workflow files,');
+              console.log('create a PAT with "workflow" permission and add it as BACKPORT_PAT secret.');
+              console.log('See: https://github.com/settings/tokens?type=beta');
+            }
+            
             // Configure git to use token for push
             execSync(`git remote set-url origin ${repoUrl}`, { stdio: 'inherit' });
-            execSync(`git push origin ${backportBranch}`, { stdio: 'inherit' });
+            
+            // Try to push - if it fails with workflow permission error, warn user about PAT
+            try {
+              execSync(`git push origin ${backportBranch}`, { stdio: 'inherit' });
+            } catch (error) {
+              if (error.message && error.message.includes('workflow') && !hasPat) {
+                console.error('');
+                console.error('❌ ERROR: GITHUB_TOKEN cannot modify workflow files.');
+                console.error('');
+                console.error('📝 Solution: Create a Personal Access Token (PAT) with "workflow" permission');
+                console.error('   1. Go to: https://github.com/settings/tokens?type=beta');
+                console.error('   2. Generate new token (classic)');
+                console.error('   3. Select "workflow" and "repo" permissions');
+                console.error('   4. Add token as BACKPORT_PAT secret in repository settings');
+                console.error('      Settings → Secrets and variables → Actions → New repository secret');
+                console.error('');
+              }
+              throw error;
+            }
             
             // Create PR
             const prTitle = `Backport to ${targetBranch}`;
