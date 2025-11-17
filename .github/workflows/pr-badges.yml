@@ -12,8 +12,22 @@ jobs:
       pull-requests: write
     env:
       APP_DOMAIN: ${{ vars.APP_DOMAIN != '' && vars.APP_DOMAIN || 'http://localhost:8000' }}
-      BACKPORT_TARGET_BRANCH: ${{ vars.BACKPORT_TARGET_BRANCH != '' && vars.BACKPORT_TARGET_BRANCH || 'release/v1.0' }}
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Read backport branches config
+        id: read_config
+        run: |
+          if [ -f ".github/configs/backport_branches.json" ]; then
+            cat .github/configs/backport_branches.json
+          else
+            echo '["release/v1.0"]'  # Default fallback
+          fi > backport_branches.json
+          echo "branches_file=backport_branches.json" >> $GITHUB_OUTPUT
+
       - name: Check if badge comment already exists
         id: check_comment
         uses: actions/github-script@v7
@@ -42,6 +56,7 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
+            const fs = require('fs');
             const prNumber = context.payload.pull_request.number;
             const prBranch = context.payload.pull_request.head.ref;
             const baseBranch = context.payload.pull_request.base.ref;
@@ -53,36 +68,43 @@ jobs:
               : 'http://localhost:8000';
             // Remove trailing slash to avoid double slashes in URL
             appDomain = appDomain.replace(/\/+$/, '');
-            // Get backport target branch from environment variable or use default
-            // Set BACKPORT_TARGET_BRANCH in: Settings → Secrets and variables → Actions → Variables
-            const backportTargetBranch = process.env.BACKPORT_TARGET_BRANCH && process.env.BACKPORT_TARGET_BRANCH.trim() !== ''
-              ? process.env.BACKPORT_TARGET_BRANCH
-              : 'release/v1.0';
+            
+            // Read backport branches from config file
+            let backportBranches = ['release/v1.0']; // Default fallback
+            try {
+              const configContent = fs.readFileSync('backport_branches.json', 'utf8');
+              backportBranches = JSON.parse(configContent);
+            } catch (error) {
+              console.log('Failed to read backport_branches.json, using default:', error.message);
+            }
+            
             const repoOwner = context.repo.owner;
             const repoName = context.repo.repo;
             
-            // Build URLs for workflows
-            // ref=baseBranch - workflow file is taken from target branch
-            // pr_branch=prBranch - workflow should test/backport from PR branch
-            
-            // Test workflow URLs
+            // Build URLs for test workflow
             const testUrlDirect = `${appDomain}/workflow/trigger?owner=${repoOwner}&repo=${repoName}&workflow_id=test.yml&ref=${baseBranch}&pr_branch=${prBranch}&test_type=all&from_pr=${prNumber}`;
             const testUrlUI = `${appDomain}/workflow/trigger?owner=${repoOwner}&repo=${repoName}&workflow_id=test.yml&ref=${baseBranch}&pr_branch=${prBranch}&test_type=all&from_pr=${prNumber}&ui=true`;
             
-            // Backport workflow URLs
-            const backportUrlDirect = `${appDomain}/workflow/trigger?owner=${repoOwner}&repo=${repoName}&workflow_id=backport.yml&ref=${baseBranch}&source_branch=${prBranch}&target_branch=${backportTargetBranch}&from_pr=${prNumber}`;
-            const backportUrlUI = `${appDomain}/workflow/trigger?owner=${repoOwner}&repo=${repoName}&workflow_id=backport.yml&ref=${baseBranch}&source_branch=${prBranch}&target_branch=${backportTargetBranch}&from_pr=${prNumber}&ui=true`;
+            // Build backport table with buttons for each branch
+            let backportTable = '| Branch | Actions |\n|--------|---------|\n';
+            for (const targetBranch of backportBranches) {
+              const backportUrlDirect = `${appDomain}/workflow/trigger?owner=${repoOwner}&repo=${repoName}&workflow_id=backport.yml&ref=${baseBranch}&source_branch=${prBranch}&target_branch=${targetBranch}&from_pr=${prNumber}`;
+              const backportUrlUI = `${appDomain}/workflow/trigger?owner=${repoOwner}&repo=${repoName}&workflow_id=backport.yml&ref=${baseBranch}&source_branch=${prBranch}&target_branch=${targetBranch}&from_pr=${prNumber}&ui=true`;
+              
+              backportTable += `| \`${targetBranch}\` | ` +
+                `[![▶ Backport](https://img.shields.io/badge/▶_Backport-2196f3?style=flat-square)](${backportUrlDirect}) ` +
+                `[![⚙️](https://img.shields.io/badge/⚙️-ff9800?style=flat-square)](${backportUrlUI}) |\n`;
+            }
             
             const comment = '## 🚀 Quick Actions\n\n' +
               'Use these buttons to quickly run workflows for this PR:\n\n' +
               '### 🧪 Run Tests\n' +
-              '[![▶ Run Tests (Direct)](https://img.shields.io/badge/▶_Run_Tests_Direct-4caf50?style=flat-square)](' + testUrlDirect + ') ' +
-              '[![⚙️ Run Tests (Configure)](https://img.shields.io/badge/⚙️_Run_Tests_Configure-ff9800?style=flat-square)](' + testUrlUI + ')\n\n' +
-              '### 📦 Backport\n' +
-              '[![▶ Backport (Direct)](https://img.shields.io/badge/▶_Backport_Direct-2196f3?style=flat-square)](' + backportUrlDirect + ') ' +
-              '[![⚙️ Backport (Configure)](https://img.shields.io/badge/⚙️_Backport_Configure-ff9800?style=flat-square)](' + backportUrlUI + ')\n\n' +
-              '**Direct** - immediately runs the workflow with default parameters.\n' +
-              '**Configure** - opens UI to review and modify parameters before running.\n\n' +
+              `[![▶ Run Tests](https://img.shields.io/badge/▶_Run_Tests-4caf50?style=flat-square)](${testUrlDirect}) ` +
+              `[![⚙️](https://img.shields.io/badge/⚙️-ff9800?style=flat-square)](${testUrlUI})\n\n` +
+              '### 📦 Backport\n\n' +
+              backportTable + '\n' +
+              '▶ - immediately runs the workflow with default parameters.\n' +
+              '⚙️ - opens UI to review and modify parameters before running.\n\n' +
               '---\n' +
               '*These links will automatically comment on this PR with the workflow results.*';
 
@@ -99,6 +121,7 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
+            const fs = require('fs');
             const prNumber = context.payload.pull_request.number;
             const prBranch = context.payload.pull_request.head.ref;
             const baseBranch = context.payload.pull_request.base.ref;
@@ -111,36 +134,43 @@ jobs:
               : 'http://localhost:8000';
             // Remove trailing slash to avoid double slashes in URL
             appDomain = appDomain.replace(/\/+$/, '');
-            // Get backport target branch from environment variable or use default
-            // Set BACKPORT_TARGET_BRANCH in: Settings → Secrets and variables → Actions → Variables
-            const backportTargetBranch = process.env.BACKPORT_TARGET_BRANCH && process.env.BACKPORT_TARGET_BRANCH.trim() !== ''
-              ? process.env.BACKPORT_TARGET_BRANCH
-              : 'release/v1.0';
+            
+            // Read backport branches from config file
+            let backportBranches = ['release/v1.0']; // Default fallback
+            try {
+              const configContent = fs.readFileSync('backport_branches.json', 'utf8');
+              backportBranches = JSON.parse(configContent);
+            } catch (error) {
+              console.log('Failed to read backport_branches.json, using default:', error.message);
+            }
+            
             const repoOwner = context.repo.owner;
             const repoName = context.repo.repo;
             
-            // Build URLs for workflows
-            // ref=baseBranch - workflow file is taken from target branch
-            // pr_branch=prBranch - workflow should test/backport from PR branch
-            
-            // Test workflow URLs
+            // Build URLs for test workflow
             const testUrlDirect = `${appDomain}/workflow/trigger?owner=${repoOwner}&repo=${repoName}&workflow_id=test.yml&ref=${baseBranch}&pr_branch=${prBranch}&test_type=all&from_pr=${prNumber}`;
             const testUrlUI = `${appDomain}/workflow/trigger?owner=${repoOwner}&repo=${repoName}&workflow_id=test.yml&ref=${baseBranch}&pr_branch=${prBranch}&test_type=all&from_pr=${prNumber}&ui=true`;
             
-            // Backport workflow URLs
-            const backportUrlDirect = `${appDomain}/workflow/trigger?owner=${repoOwner}&repo=${repoName}&workflow_id=backport.yml&ref=${baseBranch}&source_branch=${prBranch}&target_branch=${backportTargetBranch}&from_pr=${prNumber}`;
-            const backportUrlUI = `${appDomain}/workflow/trigger?owner=${repoOwner}&repo=${repoName}&workflow_id=backport.yml&ref=${baseBranch}&source_branch=${prBranch}&target_branch=${backportTargetBranch}&from_pr=${prNumber}&ui=true`;
+            // Build backport table with buttons for each branch
+            let backportTable = '| Branch | Actions |\n|--------|---------|\n';
+            for (const targetBranch of backportBranches) {
+              const backportUrlDirect = `${appDomain}/workflow/trigger?owner=${repoOwner}&repo=${repoName}&workflow_id=backport.yml&ref=${baseBranch}&source_branch=${prBranch}&target_branch=${targetBranch}&from_pr=${prNumber}`;
+              const backportUrlUI = `${appDomain}/workflow/trigger?owner=${repoOwner}&repo=${repoName}&workflow_id=backport.yml&ref=${baseBranch}&source_branch=${prBranch}&target_branch=${targetBranch}&from_pr=${prNumber}&ui=true`;
+              
+              backportTable += `| \`${targetBranch}\` | ` +
+                `[![▶ Backport](https://img.shields.io/badge/▶_Backport-2196f3?style=flat-square)](${backportUrlDirect}) ` +
+                `[![⚙️](https://img.shields.io/badge/⚙️-ff9800?style=flat-square)](${backportUrlUI}) |\n`;
+            }
             
             const comment = '## 🚀 Quick Actions\n\n' +
               'Use these buttons to quickly run workflows for this PR:\n\n' +
               '### 🧪 Run Tests\n' +
-              '[![▶ Run Tests (Direct)](https://img.shields.io/badge/▶_Run_Tests_Direct-4caf50?style=flat-square)](' + testUrlDirect + ') ' +
-              '[![⚙️ Run Tests (Configure)](https://img.shields.io/badge/⚙️_Run_Tests_Configure-ff9800?style=flat-square)](' + testUrlUI + ')\n\n' +
-              '### 📦 Backport\n' +
-              '[![▶ Backport (Direct)](https://img.shields.io/badge/▶_Backport_Direct-2196f3?style=flat-square)](' + backportUrlDirect + ') ' +
-              '[![⚙️ Backport (Configure)](https://img.shields.io/badge/⚙️_Backport_Configure-ff9800?style=flat-square)](' + backportUrlUI + ')\n\n' +
-              '**Direct** - immediately runs the workflow with default parameters.\n' +
-              '**Configure** - opens UI to review and modify parameters before running.\n\n' +
+              `[![▶ Run Tests](https://img.shields.io/badge/▶_Run_Tests-4caf50?style=flat-square)](${testUrlDirect}) ` +
+              `[![⚙️](https://img.shields.io/badge/⚙️-ff9800?style=flat-square)](${testUrlUI})\n\n` +
+              '### 📦 Backport\n\n' +
+              backportTable + '\n' +
+              '▶ - immediately runs the workflow with default parameters.\n' +
+              '⚙️ - opens UI to review and modify parameters before running.\n\n' +
               '---\n' +
               '*These links will automatically comment on this PR with the workflow results.*';
 
