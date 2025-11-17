@@ -57,19 +57,15 @@ jobs:
             const testUrl = `${appDomain}/workflow/trigger?owner=${repoOwner}&repo=${repoName}&workflow_id=test.yml&ref=${prBranch}&test_type=all&from_pr=${prNumber}`;
             const backportUrl = `${appDomain}/workflow/trigger?owner=${repoOwner}&repo=${repoName}&workflow_id=backport.yml&ref=${prBranch}&source_branch=${baseBranch}&target_branch=release/v1.0&from_pr=${prNumber}`;
             
-            const comment = `## 🚀 Quick Actions
-
-Use these badges to quickly run workflows for this PR:
-
-[![▶ Run Tests](https://img.shields.io/badge/▶_Run_Tests-4caf50?style=flat-square)](${testUrl})
-[![▶ Backport](https://img.shields.io/badge/▶_Backport-2196f3?style=flat-square)](${backportUrl})
-
-### Direct Links:
-- [Run Tests](${testUrl})
-- [Backport to release/v1.0](${backportUrl})
-
----
-*These links will automatically comment on this PR with the workflow results.*`;
+            const comment = '## 🚀 Quick Actions\n\n' +
+              'Use these badges to quickly run workflows for this PR:\n\n' +
+              '[![▶ Run Tests](https://img.shields.io/badge/▶_Run_Tests-4caf50?style=flat-square)](' + testUrl + ')\n' +
+              '[![▶ Backport](https://img.shields.io/badge/▶_Backport-2196f3?style=flat-square)](' + backportUrl + ')\n\n' +
+              '### Direct Links:\n' +
+              '- [Run Tests](' + testUrl + ')\n' +
+              '- [Backport to release/v1.0](' + backportUrl + ')\n\n' +
+              '---\n' +
+              '*These links will automatically comment on this PR with the workflow results.*';
 
             await github.rest.issues.createComment({
               issue_number: prNumber,
@@ -98,19 +94,15 @@ Use these badges to quickly run workflows for this PR:
             const testUrl = `${appDomain}/workflow/trigger?owner=${repoOwner}&repo=${repoName}&workflow_id=test.yml&ref=${prBranch}&test_type=all&from_pr=${prNumber}`;
             const backportUrl = `${appDomain}/workflow/trigger?owner=${repoOwner}&repo=${repoName}&workflow_id=backport.yml&ref=${prBranch}&source_branch=${baseBranch}&target_branch=release/v1.0&from_pr=${prNumber}`;
             
-            const comment = `## 🚀 Quick Actions
-
-Use these badges to quickly run workflows for this PR:
-
-[![▶ Run Tests](https://img.shields.io/badge/▶_Run_Tests-4caf50?style=flat-square)](${testUrl})
-[![▶ Backport](https://img.shields.io/badge/▶_Backport-2196f3?style=flat-square)](${backportUrl})
-
-### Direct Links:
-- [Run Tests](${testUrl})
-- [Backport to release/v1.0](${backportUrl})
-
----
-*These links will automatically comment on this PR with the workflow results.*`;
+            const comment = '## 🚀 Quick Actions\n\n' +
+              'Use these badges to quickly run workflows for this PR:\n\n' +
+              '[![▶ Run Tests](https://img.shields.io/badge/▶_Run_Tests-4caf50?style=flat-square)](' + testUrl + ')\n' +
+              '[![▶ Backport](https://img.shields.io/badge/▶_Backport-2196f3?style=flat-square)](' + backportUrl + ')\n\n' +
+              '### Direct Links:\n' +
+              '- [Run Tests](' + testUrl + ')\n' +
+              '- [Backport to release/v1.0](' + backportUrl + ')\n\n' +
+              '---\n' +
+              '*These links will automatically comment on this PR with the workflow results.*';
 
             await github.rest.issues.updateComment({
               owner: context.repo.owner,
