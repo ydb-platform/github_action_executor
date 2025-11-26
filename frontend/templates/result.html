@@ -93,7 +93,7 @@
                         View Workflow
                     </a>
                     {% endif %}
-                    <a href="/?owner={{ owner }}&repo={{ repo }}{% if workflow_id %}&workflow_id={{ workflow_id }}{% endif %}" class="btn btn-secondary">
+                    <a href="/?owner={{ owner }}&repo={{ repo }}{% if workflow_id %}&workflow_id={{ workflow_id }}{% endif %}{% if ref %}&ref={{ ref }}{% endif %}{% if inputs %}{% for key, value in inputs.items() %}{% if value %}&{{ key }}={{ value|urlencode }}{% endif %}{% endfor %}{% endif %}" class="btn btn-secondary">
                         Run again
                     </a>
                     <a href="/" class="btn btn-secondary">Back to home</a>
@@ -118,7 +118,7 @@
 
                 <div class="action-links">
                     {% if owner and repo and workflow_id %}
-                    <a href="/?owner={{ owner }}&repo={{ repo }}&workflow_id={{ workflow_id }}" class="btn btn-secondary">
+                    <a href="/?owner={{ owner }}&repo={{ repo }}&workflow_id={{ workflow_id }}{% if ref %}&ref={{ ref }}{% endif %}{% if inputs %}{% for key, value in inputs.items() %}{% if value %}&{{ key }}={{ value|urlencode }}{% endif %}{% endfor %}{% endif %}" class="btn btn-secondary">
                         Try again
                     </a>
                     {% endif %}

@@ -60,3 +60,93 @@ def test_api_routes_exist(client):
     response = client.get("/api/branches?owner=test&repo=test")
     assert response.status_code != 404
 
+
+def test_result_page_preserves_ref_and_inputs(client, mock_session):
+    """Test that result page preserves ref and inputs in 'Try again' links"""
+    from unittest.mock import patch, Mock, AsyncMock
+    
+    # Mock permission check
+    with patch("backend.services.permissions.check_repository_access", new_callable=AsyncMock) as mock_perms:
+        mock_perms.return_value = True
+        
+        # Mock workflow trigger to return error (to test error page)
+        with patch("backend.services.workflow.trigger_workflow", new_callable=AsyncMock) as mock_trigger:
+            mock_trigger.side_effect = Exception("Test error")
+            
+            # Set up session with authenticated user
+            with client.session_transaction() as session:
+                session.update(mock_session)
+            
+            # Trigger workflow with ref and inputs
+            response = client.get(
+                "/workflow/trigger?owner=testowner&repo=testrepo&workflow_id=test.yml&ref=develop&test_type=unit&from_pr=123"
+            )
+            
+            assert response.status_code == 200
+            assert "text/html" in response.headers["content-type"]
+            
+            # Check that ref and inputs are preserved in "Try again" link
+            content = response.text
+            # Should contain ref in the link
+            assert "ref=develop" in content or "ref%3Ddevelop" in content
+            # Should contain workflow inputs in the link
+            assert "test_type" in content
+            assert "from_pr" in content
+
+
+def test_result_page_success_preserves_ref_and_inputs(client, mock_session):
+    """Test that successful result page preserves ref and inputs in 'Run again' links"""
+    from unittest.mock import patch, Mock, AsyncMock
+    
+    # Mock permission check
+    with patch("backend.services.permissions.check_repository_access", new_callable=AsyncMock) as mock_perms:
+        mock_perms.return_value = True
+        
+        # Mock workflow trigger to return success
+        with patch("backend.services.workflow.trigger_workflow", new_callable=AsyncMock) as mock_trigger:
+            mock_trigger.return_value = {
+                "success": True,
+                "message": "Workflow triggered successfully",
+                "run_id": 123456,
+                "run_url": "https://github.com/testowner/testrepo/actions/runs/123456",
+                "workflow_url": "https://github.com/testowner/testrepo/actions",
+                "trigger_time": "2024-01-01T00:00:00Z"
+            }
+            
+            # Set up session with authenticated user
+            with client.session_transaction() as session:
+                session.update(mock_session)
+            
+            # Trigger workflow with ref and inputs
+            response = client.get(
+                "/workflow/trigger?owner=testowner&repo=testrepo&workflow_id=test.yml&ref=develop&test_type=unit&from_pr=123"
+            )
+            
+            assert response.status_code == 200
+            assert "text/html" in response.headers["content-type"]
+            
+            # Check that ref and inputs are preserved in "Run again" link
+            content = response.text
+            # Should contain ref in the link
+            assert "ref=develop" in content or "ref%3Ddevelop" in content
+            # Should contain workflow inputs in the link
+            assert "test_type" in content
+            assert "from_pr" in content
+
+
+def test_urlencode_filter():
+    """Test that urlencode filter works correctly in Jinja2 templates"""
+    from backend.routes.workflow import templates
+    from urllib.parse import quote
+    
+    # Test the filter directly
+    filter_func = templates.env.filters.get("urlencode")
+    assert filter_func is not None, "urlencode filter should be registered"
+    
+    # Test various inputs
+    assert filter_func("test value") == quote("test value", safe="")
+    assert filter_func(123) == "123"
+    assert filter_func("test&value=123") == quote("test&value=123", safe="")
+    assert filter_func(None) == ""
+    assert filter_func("") == ""
+

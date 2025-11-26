@@ -1,0 +1,86 @@
+# GitHub Action Executor - Cursor AI Rules
+
+## Project Overview
+This is a FastAPI web application for triggering GitHub Actions workflows with OAuth authentication and permission checks.
+
+## Environment Setup
+- **Virtual Environment**: The project uses a Python virtual environment located at `./venv/`
+- **Activation**: Always activate venv before running commands: `source venv/bin/activate` (Linux/Mac) or `venv\Scripts\activate` (Windows)
+- **Python Version**: Python 3.12
+- **Dependencies**: Install with `pip install -r requirements.txt` (after activating venv)
+
+## Project Structure
+- `app.py` - Main FastAPI application entry point
+- `backend/routes/` - API route handlers (auth, workflow, api)
+- `backend/services/` - Business logic services (GitHub API, OAuth, permissions)
+- `frontend/templates/` - Jinja2 HTML templates
+- `frontend/static/` - Static files (CSS, images)
+- `tests/` - Pytest test suite
+- `config.py` - Application configuration
+
+## Running Commands
+- **Start application (development)**: `python app.py` or `uvicorn app:app --host 0.0.0.0 --port 8000 --reload`
+- **Start application (background with nohup)**: `./start.sh` (uses nohup, logs to nohup.out)
+- **Stop application (nohup)**: `./stop.sh` (stops process started with start.sh)
+- **Run as systemd service**: See "Deployment" section below
+- **Run tests**: `pytest tests/ -v` (requires venv activation)
+- **Run specific test**: `pytest tests/test_app.py::test_function_name -v`
+- **Check syntax**: `python -m py_compile <file.py>`
+
+## Testing
+- **Test location**: `tests/` directory
+- **Test framework**: pytest with pytest-asyncio
+- **Fixtures**: Defined in `tests/conftest.py`
+- **Always activate venv before running tests**: `source venv/bin/activate && pytest tests/ -v`
+- **Test client**: Uses FastAPI TestClient from `fastapi.testclient`
+
+## Code Style
+- **Language**: Python 3.12 with type hints
+- **Framework**: FastAPI (async/await)
+- **Templates**: Jinja2 for HTML templates
+- **Comments**: Use English for code comments and docstrings
+- **Error handling**: Use try/except with proper logging
+
+## Key Dependencies
+- FastAPI - Web framework
+- httpx - Async HTTP client for GitHub API
+- PyJWT - JWT token generation for GitHub App
+- python-dotenv - Environment variable management
+- pytest - Testing framework
+
+## Important Notes
+- **Session Management**: Uses Starlette SessionMiddleware for OAuth state
+- **GitHub App**: Requires GITHUB_APP_ID, GITHUB_APP_INSTALLATION_ID, and private key
+- **OAuth**: Requires GITHUB_CLIENT_ID and GITHUB_CLIENT_SECRET
+- **Environment Variables**: Loaded from `.env` file via python-dotenv
+- **Templates**: Jinja2 templates in `frontend/templates/` with custom filters (urlencode)
+
+## Common Tasks
+- **Adding new route**: Add to appropriate file in `backend/routes/`
+- **Adding new service**: Add to `backend/services/`
+- **Adding test**: Add to `tests/` directory, follow existing patterns
+- **Modifying templates**: Edit files in `frontend/templates/`
+
+
+## Deployment
+- **Development mode**: Direct execution with `python app.py` or `uvicorn` with `--reload`
+- **Production with nohup**: Use `./start.sh` script (logs to `nohup.out`, PID in `app.pid`)
+- **Production with systemd**: Use `github-action-executor.service` file
+  - Service file location: `github-action-executor.service`
+  - Installation: `sudo cp github-action-executor.service /etc/systemd/system/`
+  - Commands: `sudo systemctl start/stop/restart/status github-action-executor`
+  - Enable on boot: `sudo systemctl enable github-action-executor`
+  - Logs: `sudo journalctl -u github-action-executor -f`
+  - **Important**: Edit service file to set correct paths (WorkingDirectory, PATH, User, EnvironmentFile)
+- **Service configuration**: Service uses venv Python and loads `.env` file automatically
+- **Process management**: When running as service, use systemctl commands, not direct process management
+
+## When Writing Code
+- Always check if venv needs to be activated for Python commands
+- Use async/await for all I/O operations (GitHub API calls)
+- Add proper error handling and logging
+- Write tests for new functionality
+- Follow existing code patterns and structure
+- Use type hints for function parameters and return values
+- **When modifying startup logic**: Consider both development (direct) and production (service) modes
+

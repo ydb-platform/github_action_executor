@@ -3,6 +3,7 @@ Workflow routes for triggering GitHub Actions
 """
 import os
 import logging
+from urllib.parse import quote
 from fastapi import APIRouter, Request, HTTPException, Form, Query
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
@@ -15,6 +16,13 @@ import config
 logger = logging.getLogger(__name__)
 router = APIRouter()
 templates = Jinja2Templates(directory="frontend/templates")
+# Add urlencode filter to Jinja2
+def urlencode_filter(value):
+    """URL encode filter for Jinja2 templates"""
+    if value is None:
+        return ""
+    return quote(str(value), safe="")
+templates.env.filters["urlencode"] = urlencode_filter
 
 
 async def _trigger_and_show_result(
@@ -68,7 +76,9 @@ async def _trigger_and_show_result(
                     "error": error_msg,
                     "owner": owner,
                     "repo": repo,
-                    "workflow_id": workflow_id
+                    "workflow_id": workflow_id,
+                    "ref": ref,
+                    "inputs": inputs
                 }
             )
             # Prevent caching
@@ -152,7 +162,9 @@ async def _trigger_and_show_result(
                 "error": str(e),
                 "owner": owner,
                 "repo": repo,
-                "workflow_id": workflow_id
+                "workflow_id": workflow_id,
+                "ref": ref,
+                "inputs": inputs
             }
         )
         # Prevent caching
@@ -224,7 +236,12 @@ async def trigger_workflow_get(
                 "request": request,
                 "user": request.session.get("user"),
                 "success": False,
-                "error": error_msg
+                "error": error_msg,
+                "owner": owner or "",
+                "repo": repo or "",
+                "workflow_id": workflow_id or "",
+                "ref": ref or "",
+                "inputs": {}
             }
         )
         # Prevent caching
@@ -278,7 +295,12 @@ async def trigger_workflow_post(
                 "request": request,
                 "user": request.session.get("user"),
                 "success": False,
-                "error": "Repository owner, name, and workflow_id are required"
+                "error": "Repository owner, name, and workflow_id are required",
+                "owner": owner or "",
+                "repo": repo or "",
+                "workflow_id": workflow_id or "",
+                "ref": ref or "",
+                "inputs": {}
             }
         )
     
