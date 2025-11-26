@@ -103,6 +103,30 @@ def generate_markdown(config_path: str, app_domain: str, repo_owner: str, repo_n
             if "from_pr" in base_inputs:
                 base_inputs["from_pr"] = str(pr_number)
             
+            # Handle preset_branches - load branches from file and add to inputs
+            if "preset_branches" in base_inputs:
+                preset_branches_file = base_inputs.pop("preset_branches")  # Remove from inputs
+                # Load branches from file
+                config_dir = os.path.dirname(os.path.abspath(config_path))
+                branches_file_path = os.path.join(config_dir, preset_branches_file)
+                if os.path.exists(branches_file_path):
+                    with open(branches_file_path, 'r') as f:
+                        branches = json.load(f)
+                        if isinstance(branches, dict):
+                            branches = branches.get("branches", [])
+                        # Add branches as comma-separated string for URL
+                        if branches:
+                            base_inputs["available_branches"] = ",".join(branches)
+                else:
+                    # Try relative to current working directory
+                    if os.path.exists(preset_branches_file):
+                        with open(preset_branches_file, 'r') as f:
+                            branches = json.load(f)
+                            if isinstance(branches, dict):
+                                branches = branches.get("branches", [])
+                            if branches:
+                                base_inputs["available_branches"] = ",".join(branches)
+            
             badge_color = block.get("badge_color", "4caf50")
             icon = block.get("icon", "▶")
             badge_type = block.get("badge_type", "pair")  # "pair" or "table"
@@ -110,8 +134,9 @@ def generate_markdown(config_path: str, app_domain: str, repo_owner: str, repo_n
             if not workflow_id:
                 continue
             
-            # Add section header
-            lines.append(f"### {title}")
+            # Add section header (unless hide_title is set)
+            if not block.get("hide_title", False):
+                lines.append(f"### {title}")
             
             if badge_type == "table":
                 # Generate table with multiple rows
@@ -203,18 +228,35 @@ def generate_markdown(config_path: str, app_domain: str, repo_owner: str, repo_n
                     )
                     lines.append(table)
             else:
-                # Generate badge pair
-                badge_text = title.replace("### ", "").replace("🧪 ", "").replace("🔨 ", "").strip()
-                badge_pair = generator.create_badge_pair(
-                    text=badge_text,
-                    workflow_id=workflow_id,
-                    ref=ref,
-                    inputs=base_inputs,
-                    return_url=generator.return_url,
-                    direct_color=badge_color,
-                    icon=icon
-                )
-                lines.append(badge_pair)
+                # Generate badge pair (or single UI badge if only_ui is specified)
+                badge_text = title.replace("### ", "").replace("🧪 ", "").replace("🔨 ", "").replace("📦 ", "").strip()
+                only_ui = block.get("only_ui", False)
+                
+                if only_ui:
+                    # Create only UI badge
+                    ui_badge = generator.create_badge(
+                        text=badge_text,
+                        workflow_id=workflow_id,
+                        link_type="ui",
+                        ref=ref,
+                        inputs=base_inputs,
+                        return_url=generator.return_url,
+                        badge_color=badge_color,
+                        icon=icon
+                    )
+                    lines.append(ui_badge)
+                else:
+                    # Create badge pair (direct + UI)
+                    badge_pair = generator.create_badge_pair(
+                        text=badge_text,
+                        workflow_id=workflow_id,
+                        ref=ref,
+                        inputs=base_inputs,
+                        return_url=generator.return_url,
+                        direct_color=badge_color,
+                        icon=icon
+                    )
+                    lines.append(badge_pair)
             
             lines.append("")
     
