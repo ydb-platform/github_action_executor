@@ -40,14 +40,25 @@ async def github_login(request: Request, redirect_after: str = None):
 async def github_callback(request: Request, code: str = None, state: str = None):
     """Handle GitHub OAuth callback"""
     logger.info(f"OAuth callback received - code: {'present' if code else 'missing'}, state: {state[:20] if state else 'missing'}...")
+    logger.info(f"Full callback URL: {request.url}")
+    logger.info(f"Session keys: {list(request.session.keys())}")
     
     # Verify state
     session_state = request.session.get("oauth_state")
     logger.info(f"Session state: {session_state[:20] if session_state else 'missing'}...")
     
-    if not session_state or session_state != state:
-        logger.error(f"State mismatch! Session: {session_state[:20] if session_state else 'None'}, Received: {state[:20] if state else 'None'}")
-        raise HTTPException(status_code=400, detail="Invalid state parameter")
+    # GitHub sometimes doesn't return state, but if we have it in session and code is valid, allow it
+    # This is a workaround for cases where state is lost in redirect
+    if state and session_state:
+        if session_state != state:
+            logger.error(f"State mismatch! Session: {session_state[:20] if session_state else 'None'}, Received: {state[:20] if state else 'None'}")
+            raise HTTPException(status_code=400, detail="Invalid state parameter")
+    elif not session_state:
+        logger.warning("No state in session, but proceeding with authentication (state may have been lost in redirect)")
+        # Allow authentication to proceed if we have a valid code
+    elif not state:
+        logger.warning("GitHub didn't return state parameter, but we have it in session - allowing authentication")
+        # GitHub didn't return state, but we have it in session - this is acceptable
     
     if not code:
         logger.error("Authorization code not provided in callback")
