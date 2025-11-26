@@ -1,41 +1,41 @@
 # GitHub Action Executor
 
-Веб-интерфейс для удобного запуска GitHub Actions workflows с проверкой прав доступа.
+Web interface for convenient GitHub Actions workflow execution with access control verification.
 
-## Зачем это нужно?
+## Why is this needed?
 
-**Проблема:** Запуск GitHub Actions workflows обычно требует:
-- Перехода в GitHub UI
-- Навигации по репозиторию
-- Ручного заполнения всех параметров
-- Повторения этих действий для каждого запуска
+**Problem:** Running GitHub Actions workflows typically requires:
+- Navigating to GitHub UI
+- Browsing through the repository
+- Manually filling in all parameters
+- Repeating these actions for each run
 
-**Решение:** GitHub Action Executor предоставляет:
-- 🚀 **Быстрый запуск** через веб-интерфейс или прямые ссылки
-- 🔐 **Безопасность** - проверка прав коллаборатора перед запуском
-- 🎯 **Удобство** - автоматическое определение параметров workflow
-- 🔗 **Интеграция** - REST API для автоматизации
-- 📱 **Badges** - создание кнопок для быстрого запуска в документации
+**Solution:** GitHub Action Executor provides:
+- 🚀 **Quick launch** via web interface or direct links
+- 🔐 **Security** - collaborator permission check before execution
+- 🎯 **Convenience** - automatic workflow parameter detection
+- 🔗 **Integration** - REST API for automation
+- 📱 **Badges** - create buttons for quick launch in documentation
 
-## Как это работает?
+## How does it work?
 
 ```mermaid
 flowchart LR
-    User([Пользователь]) --> Method{Способ}
+    User([User]) --> Method{Method}
     
-    Method -->|Веб| WebUI[🌐 Веб-форма]
-    Method -->|Ссылка| DirectLink[🔗 Badge/Ссылка]
+    Method -->|Web| WebUI[🌐 Web Form]
+    Method -->|Link| DirectLink[🔗 Badge/Link]
     Method -->|API| API[⚙️ REST API]
     
     WebUI --> Auth[🔐 OAuth]
     DirectLink --> Auth
     API --> Auth
     
-    Auth --> Check{Права?}
-    Check -->|✅| Trigger[🚀 Запуск]
-    Check -->|❌| Error[Ошибка]
+    Auth --> Check{Perms?}
+    Check -->|✅| Trigger[🚀 Trigger]
+    Check -->|❌| Error[Error]
     
-    Trigger --> Result[✅ Результат]
+    Trigger --> Result[✅ Result]
     
     classDef user fill:#e3f2fd,stroke:#1976d2,stroke-width:3px
     classDef method fill:#fff3e0,stroke:#f57c00,stroke-width:2px
@@ -52,75 +52,74 @@ flowchart LR
     class Error error
 ```
 
-### 1. Запуск через веб-интерфейс
+### 1. Launch via web interface
 
-Самый простой способ для ручного запуска:
+The simplest way for manual execution:
 
-1. Откройте веб-интерфейс
-2. Авторизуйтесь через GitHub (один раз)
-3. Выберите репозиторий, workflow и ветку
-4. Форма автоматически подгрузит все доступные параметры
-5. Заполните параметры и нажмите "Запустить"
-6. Получите ссылку на запуск в GitHub Actions
+1. Open the web interface
+2. Authorize via GitHub (once)
+3. Select repository, workflow, and branch
+4. The form will automatically load all available parameters
+5. Fill in parameters and click "Run"
+6. Get a link to the run in GitHub Actions
 
-**Преимущества:**
-- Автоматическое определение всех параметров workflow из YAML
-- Динамические поля (текст, выбор, чекбоксы) в зависимости от типа параметра
-- Фильтрация веток по настраиваемым паттернам
-- Проверка прав доступа перед запуском
+**Advantages:**
+- Automatic detection of all workflow parameters from YAML
+- Dynamic fields (text, choice, checkboxes) based on parameter type
+- Branch filtering by configurable patterns
+- Access permission check before execution
 
-### 2. Запуск по прямой ссылке
+### 2. Launch via direct link
 
-Идеально для создания закладок или badges в документации:
+Perfect for creating bookmarks or badges in documentation:
 
 ```
 http://your-server/workflow/trigger?owner=owner&repo=my-repo&workflow_id=ci.yml&ref=main&test_type=pytest
 ```
 
-**Как это работает:**
-- Пользователь переходит по ссылке
-- Если не авторизован → автоматическая авторизация с возвратом
-- Workflow запускается автоматически с параметрами из ссылки
-- Показывается результат запуска
+**How it works:**
+- User clicks the link
+- If not authorized → automatic authorization with return
+- Workflow launches automatically with parameters from the link
+- Run result is displayed
 
-**Пример использования:**
-- Создайте badge в README для быстрого запуска тестов
-- Добавьте ссылку в PR для запуска проверок
-- Используйте в документации для демонстрации workflows
+**Usage examples:**
+- Create a badge in README for quick test runs
+- Add a link in PR for running checks
+- Use in documentation to demonstrate workflows
 
+**Applications:**
+- CI/CD pipeline integration
+- Test automation
+- Scripts for bulk execution
+- Integration with other systems
 
-**Применение:**
-- Интеграция в CI/CD пайплайны
-- Автоматизация тестирования
-- Создание скриптов для массового запуска
-- Интеграция с другими системами
+## Authorization and permission check
 
-## Авторизация и проверка прав
-
-Система обеспечивает безопасный доступ к запуску workflows через двухэтапную проверку:
+The system provides secure access to workflow execution through two-step verification:
 
 ```mermaid
 flowchart TD
-    Start([Пользователь]) --> NeedAuth{Авторизован?}
+    Start([User]) --> NeedAuth{Authorized?}
     
-    NeedAuth -->|Нет| OAuth[🔐 OAuth авторизация]
-    OAuth --> GitHub[GitHub запрашивает<br/>разрешения]
-    GitHub --> UserApprove{Пользователь<br/>одобряет?}
-    UserApprove -->|Нет| Cancel[Отмена]
-    UserApprove -->|Да| GetToken[Получение токена]
-    GetToken --> SaveSession[Сохранение в сессии]
+    NeedAuth -->|No| OAuth[🔐 OAuth Auth]
+    OAuth --> GitHub[GitHub Requests<br/>Permissions]
+    GitHub --> UserApprove{User<br/>Approves?}
+    UserApprove -->|No| Cancel[Cancel]
+    UserApprove -->|Yes| GetToken[Get Token]
+    GetToken --> SaveSession[Save Session]
     
-    NeedAuth -->|Да| CheckPerm
-    SaveSession --> CheckPerm{Проверка прав<br/>включена?}
+    NeedAuth -->|Yes| CheckPerm
+    SaveSession --> CheckPerm{Check Perms<br/>Enabled?}
     
-    CheckPerm -->|Нет| Allow[✅ Разрешить запуск]
-    CheckPerm -->|Да| CheckCollab{Коллаборатор<br/>репозитория?}
+    CheckPerm -->|No| Allow[✅ Allow]
+    CheckPerm -->|Yes| CheckCollab{Collaborator?}
     
-    CheckCollab -->|Да| Allow
-    CheckCollab -->|Нет| Deny[❌ Отказать в доступе]
+    CheckCollab -->|Yes| Allow
+    CheckCollab -->|No| Deny[❌ Deny]
     
-    Allow --> Trigger[🚀 Запуск workflow]
-    Deny --> Error[Ошибка доступа]
+    Allow --> Trigger[🚀 Trigger]
+    Deny --> Error[Access Error]
     
     classDef auth fill:#e3f2fd,stroke:#1976d2,stroke-width:2px
     classDef check fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px
@@ -133,61 +132,61 @@ flowchart TD
     class Cancel,Deny,Error error
 ```
 
-**Как это работает:**
+**How it works:**
 
-1. **OAuth авторизация:**
-   - Пользователь перенаправляется на GitHub
-   - Запрашиваются разрешения (read:user, repo)
-   - GitHub возвращает токен доступа
-   - Токен сохраняется в сессии сервера (безопасно)
+1. **OAuth authorization:**
+   - User is redirected to GitHub
+   - Permissions are requested (read:user, repo)
+   - GitHub returns access token
+   - Token is stored in server session (secure)
 
-2. **Проверка прав:**
-   - Система проверяет, является ли пользователь коллаборатором репозитория
-   - Проверка выполняется через GitHub API
-   - Только коллабораторы могут запускать workflows
-   - Можно отключить через `CHECK_PERMISSIONS=false` (не рекомендуется)
+2. **Permission check:**
+   - System checks if user is a repository collaborator
+   - Check is performed via GitHub API
+   - Only collaborators can trigger workflows
+   - Can be disabled via `CHECK_PERMISSIONS=false` (not recommended)
 
-**Безопасность:**
-- ✅ CSRF защита через state токен в OAuth
-- ✅ Токены хранятся только на сервере
-- ✅ Проверка прав перед каждым запуском
-- ✅ Использование GitHub App вместо личных токенов
+**Security:**
+- ✅ CSRF protection via state token in OAuth
+- ✅ Tokens stored only on server
+- ✅ Permission check before each execution
+- ✅ Using GitHub App instead of personal tokens
 
-## Подключение к приложению
+## Application setup
 
-Для начала работы необходимо настроить OAuth App и GitHub App в GitHub:
+To get started, you need to configure OAuth App and GitHub App in GitHub:
 
 ```mermaid
 flowchart TD
-    Start([Начало настройки]) --> Who{Кто настраивает?}
+    Start([Setup Start]) --> Who{Who configures?}
     
-    Who -->|Админ приложения| AdminApp[👤 Админ приложения]
-    Who -->|Админ репозитория| AdminRepo[👤 Админ репозитория]
+    Who -->|App Admin| AdminApp[👤 App Admin]
+    Who -->|Repo Admin| AdminRepo[👤 Repo Admin]
     
-    AdminApp --> Step1[1️⃣ Создать OAuth App<br/>📍 Settings → Developer settings → OAuth Apps<br/>🔗 github.com/settings/developers]
-    Step1 --> GetOAuth[📋 Получить:<br/>• Client ID<br/>• Client Secret]
+    AdminApp --> Step1[1️⃣ Create OAuth App<br/>📍 Settings → Developer settings<br/>🔗 github.com/settings/developers]
+    Step1 --> GetOAuth[📋 Get:<br/>• Client ID<br/>• Client Secret]
     
-    GetOAuth --> Step2[2️⃣ Создать GitHub App<br/>📍 Settings → Developer settings → GitHub Apps<br/>🔗 github.com/settings/apps]
-    Step2 --> SetPerms[⚙️ Установить права:<br/>• Actions: Read/Write<br/>• Contents: Read-only<br/>• Issues: Write<br/>• Workflows: Write]
-    SetPerms --> GetAppCreds[📋 Получить:<br/>• App ID<br/>• Private Key .pem]
+    GetOAuth --> Step2[2️⃣ Create GitHub App<br/>📍 Settings → Developer settings<br/>🔗 github.com/settings/apps]
+    Step2 --> SetPerms[⚙️ Set Permissions:<br/>• Actions: Read/Write<br/>• Contents: Read-only<br/>• Issues: Write<br/>• Workflows: Write]
+    SetPerms --> GetAppCreds[📋 Get:<br/>• App ID<br/>• Private Key .pem]
     
-    GetAppCreds --> Step3[3️⃣ Установить GitHub App]
+    GetAppCreds --> Step3[3️⃣ Install GitHub App]
     AdminRepo --> Step3
     
-    Step3 --> Choose{Куда установить?}
-    Choose -->|В репозиторий| Repo[📍 Settings → Integrations<br/>🔗 github.com/OWNER/REPO/settings/installations]
-    Choose -->|В организацию| Org[📍 Org Settings → GitHub Apps<br/>🔗 github.com/organizations/ORG/settings/installations]
-    Choose -->|На аккаунт| Account[📍 Settings → Applications<br/>🔗 github.com/settings/installations]
+    Step3 --> Choose{Where to install?}
+    Choose -->|Repository| Repo[📍 Settings → Integrations<br/>🔗 github.com/OWNER/REPO/settings/installations]
+    Choose -->|Organization| Org[📍 Org Settings → GitHub Apps<br/>🔗 github.com/organizations/ORG/settings/installations]
+    Choose -->|Account| Account[📍 Settings → Applications<br/>🔗 github.com/settings/installations]
     
-    Repo --> GetInstallID[📋 Получить Installation ID<br/>из URL: .../installations/12345678]
+    Repo --> GetInstallID[📋 Get Installation ID<br/>from URL: .../installations/12345678]
     Org --> GetInstallID
     Account --> GetInstallID
     
-    GetInstallID --> Step4[4️⃣ Настроить .env файл<br/>👤 Админ приложения]
-    Step4 --> EnvVars[📝 Добавить переменные:<br/>GITHUB_CLIENT_ID<br/>GITHUB_CLIENT_SECRET<br/>GITHUB_APP_ID<br/>GITHUB_APP_INSTALLATION_ID<br/>GITHUB_APP_PRIVATE_KEY_PATH]
+    GetInstallID --> Step4[4️⃣ Configure .env<br/>👤 App Admin]
+    Step4 --> EnvVars[📝 Add variables:<br/>GITHUB_CLIENT_ID<br/>GITHUB_CLIENT_SECRET<br/>GITHUB_APP_ID<br/>GITHUB_APP_INSTALLATION_ID<br/>GITHUB_APP_PRIVATE_KEY_PATH]
     
-    EnvVars --> Step5[5️⃣ Запустить приложение]
-    Step5 --> Ready[✅ Готово!]
+    EnvVars --> Step5[5️⃣ Start App]
+    Step5 --> Ready[✅ Ready!]
     
     classDef admin fill:#e3f2fd,stroke:#1976d2,stroke-width:2px
     classDef step fill:#fff3e0,stroke:#f57c00,stroke-width:2px
@@ -200,38 +199,38 @@ flowchart TD
     class Ready success
 ```
 
-**Кто что делает:**
+**Who does what:**
 
-- **Админ приложения:**
-  - Создает OAuth App и GitHub App
-  - Настраивает переменные окружения
-  - Запускает приложение
+- **App administrator:**
+  - Creates OAuth App and GitHub App
+  - Configures environment variables
+  - Starts the application
 
-- **Админ репозитория/организации:**
-  - Устанавливает GitHub App в репозиторий или организацию
-  - Предоставляет Installation ID
+- **Repository/organization administrator:**
+  - Installs GitHub App in repository or organization
+  - Provides Installation ID
 
-**Что нужно получить:**
+**What you need to get:**
 - OAuth App: Client ID, Client Secret
-- GitHub App: App ID, Installation ID, Private Key (.pem файл)
+- GitHub App: App ID, Installation ID, Private Key (.pem file)
 
-**Важно: Работа с организациями**
+**Important: Working with organizations**
 
-Если вы уже настроили приложение для личного аккаунта и хотите использовать его с организацией:
+If you've already configured the app for a personal account and want to use it with an organization:
 
-✅ **Можно использовать те же:**
-- OAuth App (Client ID, Client Secret) - один OAuth App работает для всех
-- GitHub App (App ID, Private Key) - один GitHub App можно установить в несколько мест
+✅ **You can reuse:**
+- OAuth App (Client ID, Client Secret) - one OAuth App works for all
+- GitHub App (App ID, Private Key) - one GitHub App can be installed in multiple places
 
-⚠️ **Нужно обновить:**
-- **Installation ID** - если GitHub App установлен в организации, используйте Installation ID этой установки
-- Если организация требует одобрения OAuth Apps, админ должен одобрить ваше OAuth App в настройках организации
+⚠️ **You need to update:**
+- **Installation ID** - if GitHub App is installed in an organization, use that installation's Installation ID
+- If the organization requires OAuth App approval, the admin must approve your OAuth App in organization settings
 
-**Как получить Installation ID для организации:**
-1. Установите GitHub App в организацию (если еще не установлен)
-2. Перейдите в настройки организации → GitHub Apps
-3. Найдите ваше приложение и откройте его
-4. Installation ID будет в URL: `.../installations/12345678`
+**How to get Installation ID for organization:**
+1. Install GitHub App in the organization (if not already installed)
+2. Go to organization settings → GitHub Apps
+3. Find your app and open it
+4. Installation ID will be in the URL: `.../installations/12345678`
 
 ## Быстрый старт
 

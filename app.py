@@ -48,7 +48,13 @@ app.add_middleware(LoggingMiddleware)
 
 # Add session middleware for OAuth
 secret_key = os.getenv("SECRET_KEY", "change-this-secret-key-in-production")
-app.add_middleware(SessionMiddleware, secret_key=secret_key)
+app.add_middleware(
+    SessionMiddleware,
+    secret_key=secret_key,
+    max_age=86400,  # 24 hours
+    same_site="lax",
+    https_only=False  # nginx handles HTTPS
+)
 
 # Mount static files
 app.mount("/static", StaticFiles(directory="frontend/static"), name="static")
