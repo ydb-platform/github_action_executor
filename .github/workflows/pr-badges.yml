@@ -18,15 +18,10 @@ jobs:
         with:
           fetch-depth: 1
 
-      - name: Read backport branches config
-        id: read_config
-        run: |
-          if [ -f ".github/configs/backport_branches.json" ]; then
-            cat .github/configs/backport_branches.json
-          else
-            echo '["release/v1.0"]'  # Default fallback
-          fi > backport_branches.json
-          echo "branches_file=backport_branches.json" >> $GITHUB_OUTPUT
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
 
       - name: Check if badge comment already exists
         id: check_comment
@@ -50,7 +45,23 @@ jobs:
             core.setOutput('comment_id', badgeComment ? badgeComment.id : '');
             core.setOutput('exists', badgeComment ? 'true' : 'false');
 
-      - name: Add or update badge comment
+      - name: Generate badge comment
+        id: generate_comment
+        run: |
+          # Build comment using wrapper script
+          python3 .github/scripts/badges/generate_markdown.py \
+            --config .github/scripts/badges/configs/badge_config.json \
+            --app-domain "${{ env.APP_DOMAIN }}" \
+            --repo-owner "${{ github.repository_owner }}" \
+            --repo-name "${{ github.event.repository.name }}" \
+            --pr-number ${{ github.event.pull_request.number }} \
+            --pr-branch "${{ github.event.pull_request.head.ref }}" \
+            --base-branch "${{ github.event.pull_request.base.ref }}" \
+            --output comment.txt
+          
+          echo "comment_file=comment.txt" >> $GITHUB_OUTPUT
+
+      - name: Add badge comment
         if: steps.check_comment.outputs.exists == 'false'
         uses: actions/github-script@v7
         with:
@@ -58,56 +69,8 @@ jobs:
           script: |
             const fs = require('fs');
             const prNumber = context.payload.pull_request.number;
-            const prBranch = context.payload.pull_request.head.ref;
-            const baseBranch = context.payload.pull_request.base.ref;
+            const comment = fs.readFileSync('${{ steps.generate_comment.outputs.comment_file }}', 'utf8');
             
-            // Get app domain from environment variable
-            // Set APP_DOMAIN in: Settings → Secrets and variables → Actions → Variables
-            let appDomain = process.env.APP_DOMAIN && process.env.APP_DOMAIN.trim() !== '' 
-              ? process.env.APP_DOMAIN.trim() 
-              : 'http://localhost:8000';
-            // Remove trailing slash to avoid double slashes in URL
-            appDomain = appDomain.replace(/\/+$/, '');
-            
-            // Read backport branches from config file
-            let backportBranches = ['release/v1.0']; // Default fallback
-            try {
-              const configContent = fs.readFileSync('backport_branches.json', 'utf8');
-              backportBranches = JSON.parse(configContent);
-            } catch (error) {
-              console.log('Failed to read backport_branches.json, using default:', error.message);
-            }
-            
-            const repoOwner = context.repo.owner;
-            const repoName = context.repo.repo;
-            
-            // Build URLs for test workflow
-            const testUrlDirect = `${appDomain}/workflow/trigger?owner=${repoOwner}&repo=${repoName}&workflow_id=test.yml&ref=${baseBranch}&pr_branch=${prBranch}&test_type=all&from_pr=${prNumber}`;
-            const testUrlUI = `${appDomain}/workflow/trigger?owner=${repoOwner}&repo=${repoName}&workflow_id=test.yml&ref=${baseBranch}&pr_branch=${prBranch}&test_type=all&from_pr=${prNumber}&ui=true`;
-            
-            // Build backport table with buttons for each branch
-            let backportTable = '| Branch | Actions |\n|--------|---------|\n';
-            for (const targetBranch of backportBranches) {
-              const backportUrlDirect = `${appDomain}/workflow/trigger?owner=${repoOwner}&repo=${repoName}&workflow_id=backport.yml&ref=${baseBranch}&source_branch=${prBranch}&target_branch=${targetBranch}&from_pr=${prNumber}`;
-              const backportUrlUI = `${appDomain}/workflow/trigger?owner=${repoOwner}&repo=${repoName}&workflow_id=backport.yml&ref=${baseBranch}&source_branch=${prBranch}&target_branch=${targetBranch}&from_pr=${prNumber}&ui=true`;
-              
-              backportTable += `| \`${targetBranch}\` | ` +
-                `[![▶ Backport](https://img.shields.io/badge/▶_Backport-2196f3?style=flat-square)](${backportUrlDirect}) ` +
-                `[![⚙️](https://img.shields.io/badge/⚙️-ff9800?style=flat-square)](${backportUrlUI}) |\n`;
-            }
-            
-            const comment = '## 🚀 Quick Actions\n\n' +
-              'Use these buttons to quickly run workflows for this PR:\n\n' +
-              '### 🧪 Run Tests\n' +
-              `[![▶ Run Tests](https://img.shields.io/badge/▶_Run_Tests-4caf50?style=flat-square)](${testUrlDirect}) ` +
-              `[![⚙️](https://img.shields.io/badge/⚙️-ff9800?style=flat-square)](${testUrlUI})\n\n` +
-              '### 📦 Backport\n\n' +
-              backportTable + '\n' +
-              '▶ - immediately runs the workflow with default parameters.\n' +
-              '⚙️ - opens UI to review and modify parameters before running.\n\n' +
-              '---\n' +
-              '*These links will automatically comment on this PR with the workflow results.*';
-
             await github.rest.issues.createComment({
               issue_number: prNumber,
               owner: context.repo.owner,
@@ -123,61 +86,12 @@ jobs:
           script: |
             const fs = require('fs');
             const prNumber = context.payload.pull_request.number;
-            const prBranch = context.payload.pull_request.head.ref;
-            const baseBranch = context.payload.pull_request.base.ref;
             const commentId = parseInt('${{ steps.check_comment.outputs.comment_id }}');
+            const comment = fs.readFileSync('${{ steps.generate_comment.outputs.comment_file }}', 'utf8');
             
-            // Get app domain from environment variable
-            // Set APP_DOMAIN in: Settings → Secrets and variables → Actions → Variables
-            let appDomain = process.env.APP_DOMAIN && process.env.APP_DOMAIN.trim() !== '' 
-              ? process.env.APP_DOMAIN.trim() 
-              : 'http://localhost:8000';
-            // Remove trailing slash to avoid double slashes in URL
-            appDomain = appDomain.replace(/\/+$/, '');
-            
-            // Read backport branches from config file
-            let backportBranches = ['release/v1.0']; // Default fallback
-            try {
-              const configContent = fs.readFileSync('backport_branches.json', 'utf8');
-              backportBranches = JSON.parse(configContent);
-            } catch (error) {
-              console.log('Failed to read backport_branches.json, using default:', error.message);
-            }
-            
-            const repoOwner = context.repo.owner;
-            const repoName = context.repo.repo;
-            
-            // Build URLs for test workflow
-            const testUrlDirect = `${appDomain}/workflow/trigger?owner=${repoOwner}&repo=${repoName}&workflow_id=test.yml&ref=${baseBranch}&pr_branch=${prBranch}&test_type=all&from_pr=${prNumber}`;
-            const testUrlUI = `${appDomain}/workflow/trigger?owner=${repoOwner}&repo=${repoName}&workflow_id=test.yml&ref=${baseBranch}&pr_branch=${prBranch}&test_type=all&from_pr=${prNumber}&ui=true`;
-            
-            // Build backport table with buttons for each branch
-            let backportTable = '| Branch | Actions |\n|--------|---------|\n';
-            for (const targetBranch of backportBranches) {
-              const backportUrlDirect = `${appDomain}/workflow/trigger?owner=${repoOwner}&repo=${repoName}&workflow_id=backport.yml&ref=${baseBranch}&source_branch=${prBranch}&target_branch=${targetBranch}&from_pr=${prNumber}`;
-              const backportUrlUI = `${appDomain}/workflow/trigger?owner=${repoOwner}&repo=${repoName}&workflow_id=backport.yml&ref=${baseBranch}&source_branch=${prBranch}&target_branch=${targetBranch}&from_pr=${prNumber}&ui=true`;
-              
-              backportTable += `| \`${targetBranch}\` | ` +
-                `[![▶ Backport](https://img.shields.io/badge/▶_Backport-2196f3?style=flat-square)](${backportUrlDirect}) ` +
-                `[![⚙️](https://img.shields.io/badge/⚙️-ff9800?style=flat-square)](${backportUrlUI}) |\n`;
-            }
-            
-            const comment = '## 🚀 Quick Actions\n\n' +
-              'Use these buttons to quickly run workflows for this PR:\n\n' +
-              '### 🧪 Run Tests\n' +
-              `[![▶ Run Tests](https://img.shields.io/badge/▶_Run_Tests-4caf50?style=flat-square)](${testUrlDirect}) ` +
-              `[![⚙️](https://img.shields.io/badge/⚙️-ff9800?style=flat-square)](${testUrlUI})\n\n` +
-              '### 📦 Backport\n\n' +
-              backportTable + '\n' +
-              '▶ - immediately runs the workflow with default parameters.\n' +
-              '⚙️ - opens UI to review and modify parameters before running.\n\n' +
-              '---\n' +
-              '*These links will automatically comment on this PR with the workflow results.*';
-
             await github.rest.issues.updateComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
               comment_id: commentId,
               body: comment
             });
-

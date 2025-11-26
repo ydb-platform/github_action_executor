@@ -1,0 +1,72 @@
+{
+  "workflows": [
+    {
+      "title": "🧪 Run Tests",
+      "type": "table",
+      "workflow_id": "test.yml",
+      "ref": "main",
+      "column_headers": ["Sanitizer", "Actions"],
+      "label_key": "sanitizer",
+      "inputs": {
+        "pr_branch": "feature-branch",
+        "test_type": "all",
+        "from_pr": "123"
+      },
+      "badge_color": "4caf50",
+      "icon": "▶",
+      "rows": [
+        {
+          "sanitizer": "Address",
+          "badge_color": "4caf50",
+          "inputs": {
+            "sanitizer": "address"
+          }
+        },
+        {
+          "sanitizer": "Memory",
+          "badge_color": "2196f3",
+          "inputs": {
+            "sanitizer": "memory"
+          }
+        },
+        {
+          "sanitizer": "Undefined Behavior",
+          "badge_color": "ff9800",
+          "inputs": {
+            "sanitizer": "undefined"
+          }
+        },
+        {
+          "sanitizer": "Thread",
+          "badge_color": "9c27b0",
+          "inputs": {
+            "sanitizer": "thread"
+          }
+        }
+      ]
+    },
+    {
+      "title": "🔨 Build",
+      "type": "pair",
+      "workflow_id": "build.yml",
+      "ref": "main",
+      "inputs": {
+        "build_type": "release"
+      },
+      "badge_color": "2196f3",
+      "icon": "🔨"
+    }
+  ],
+  "backport_branches": [
+    "release/v1.0",
+    "release/v2.0",
+    "stable"
+  ],
+  "backport_workflow_id": "backport.yml",
+  "legend": {
+    "enabled": true,
+    "direct_text": "▶ - immediately runs the workflow with default parameters.",
+    "ui_text": "⚙️ - opens UI to review and modify parameters before running."
+  }
+}
+

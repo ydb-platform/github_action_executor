@@ -1,0 +1,93 @@
+{
+  "blocks": [
+    {
+      "type": "text",
+      "order": 0,
+      "enabled": true,
+      "text": "## 🚀 Quick Actions"
+    },
+    {
+      "type": "badge",
+      "badge_type": "table",
+      "order": 50,
+      "enabled": true,
+      "title": "🧪 Run Tests",
+      "workflow_id": "test.yml",
+      "ref": "main",
+      "inputs": {
+        "pr_branch": "feature-branch",
+        "test_type": "all",
+        "from_pr": "123"
+      },
+      "badge_color": "4caf50",
+      "icon": "▶",
+      "column_headers": [
+        "Test Type",
+        "Actions"
+      ],
+      "label_key": "test_type",
+      "rows": [
+        {
+          "test_type": "All",
+          "badge_color": "4caf50",
+          "inputs": {
+            "test_type": "all"
+          }
+        },
+        {
+          "test_type": "Unit",
+          "badge_color": "2196f3",
+          "inputs": {
+            "test_type": "unit"
+          }
+        },
+        {
+          "test_type": "Integration",
+          "badge_color": "ff9800",
+          "inputs": {
+            "test_type": "integration"
+          }
+        }
+      ]
+    },
+    {
+      "type": "badge",
+      "badge_type": "table",
+      "order": 99,
+      "enabled": true,
+      "title": "📦 Backport",
+      "workflow_id": "backport.yml",
+      "ref": "main",
+      "badge_color": "2196f3",
+      "icon": "▶",
+      "column_headers": [
+        "Branch",
+        "Actions"
+      ],
+      "label_key": "branch",
+      "badge_text": "Backport",
+      "branches_file": "backport_branches.json"
+    },
+    {
+      "type": "text",
+      "order": 100,
+      "enabled": true,
+      "text": [
+        "▶ - immediately runs the workflow with default parameters.",
+        "",
+        "⚙️ - opens UI to review and modify parameters before running."
+      ]
+    },
+    {
+      "type": "text",
+      "order": 101,
+      "enabled": true,
+      "separator": true,
+      "text": [
+        "*These links will automatically comment on this PR with the workflow results.*",
+        "",
+        "*Tip: To open links in a new tab, use Ctrl+Click (Windows/Linux) or Cmd+Click (macOS).*"
+      ]
+    }
+  ]
+}
