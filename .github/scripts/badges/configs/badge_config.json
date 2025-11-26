@@ -15,9 +15,8 @@
       "workflow_id": "test.yml",
       "ref": "main",
       "inputs": {
-        "pr_branch": "feature-branch",
         "test_type": "all",
-        "from_pr": "123"
+        "from_pr": "{pr_number}"
       },
       "badge_color": "4caf50",
       "icon": "▶",
@@ -30,23 +29,17 @@
         {
           "test_type": "All",
           "badge_color": "4caf50",
-          "inputs": {
-            "test_type": "all"
-          }
+          "inputs": {"test_type": "all"}
         },
         {
           "test_type": "Unit",
           "badge_color": "2196f3",
-          "inputs": {
-            "test_type": "unit"
-          }
+          "inputs": {"test_type": "unit"}
         },
         {
           "test_type": "Integration",
           "badge_color": "ff9800",
-          "inputs": {
-            "test_type": "integration"
-          }
+          "inputs": {"test_type": "integration"}
         }
       ]
     },
@@ -60,13 +53,19 @@
       "ref": "main",
       "badge_color": "2196f3",
       "icon": "▶",
-      "column_headers": [
-        "Branch",
-        "Actions"
-      ],
+      "column_headers": ["Branch", "Actions"],
       "label_key": "branch",
       "badge_text": "Backport",
-      "branches_file": "backport_branches.json"
+      "items_file": "backport_branches.json",
+      "input_key": "target_branch",
+      "label_format": "`{value}`",
+      "inputs": {
+        "from_pr": "{pr_number}",
+        "source_branch": "{pr_branch}"
+      },
+      "row_inputs_template": {
+        "target_branch": "{item}"
+      }
     },
     {
       "type": "text",
@@ -76,7 +75,6 @@
     },
     {
       "type": "badge",
-      "badge_type": "pair",
       "order": 99.5,
       "enabled": true,
       "title": "📦 Backport (Custom)",
@@ -87,9 +85,8 @@
       "only_ui": true,
       "hide_title": true,
       "inputs": {
-        "pr_branch": "feature-branch",
-        "from_pr": "123",
-        "preset_branches": "backport_branches.json"
+        "from_pr": "{pr_number}",
+        "source_branch": "{pr_branch}"
       }
     },
     {

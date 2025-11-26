@@ -19,6 +19,46 @@ sys.path.insert(0, str(badges_dir))
 from generate_badges import BadgeGenerator
 
 
+def replace_placeholders(text: str, pr_branch: str, pr_number: int, base_branch: str) -> str:
+    """Replace placeholders in text with actual values"""
+    if not isinstance(text, str):
+        return text
+    return (text
+            .replace("{pr_branch}", pr_branch)
+            .replace("{pr_number}", str(pr_number))
+            .replace("{base_branch}", base_branch))
+
+
+def load_json_file(file_path: str, config_dir: str, data_key: str = None):
+    """
+    Load JSON data from file, resolving path relative to config_dir or current directory.
+    
+    Returns:
+        - If data_key is None: returns the file content as-is (dict or list)
+        - If data_key is provided: returns file_data[data_key] if file_data is dict, else file_data
+    """
+    # Try relative to config directory first
+    full_path = os.path.join(config_dir, file_path)
+    if not os.path.exists(full_path):
+        # Try relative to current working directory
+        if os.path.exists(file_path):
+            full_path = file_path
+        else:
+            return None
+    
+    try:
+        with open(full_path, 'r') as f:
+            file_data = json.load(f)
+            
+        # Extract data using data_key if provided
+        if data_key and isinstance(file_data, dict):
+            return file_data.get(data_key)
+        
+        return file_data
+    except Exception:
+        return None
+
+
 def generate_markdown(config_path: str, app_domain: str, repo_owner: str, repo_name: str,
                       pr_number: int, pr_branch: str, base_branch: str) -> str:
     """
@@ -97,39 +137,38 @@ def generate_markdown(config_path: str, app_domain: str, repo_owner: str, repo_n
             ref = block.get("ref", base_branch)
             base_inputs = block.get("inputs", {}).copy()  # Copy to avoid modifying original
             
-            # Replace dynamic values in inputs
-            if "pr_branch" in base_inputs:
-                base_inputs["pr_branch"] = pr_branch
-            if "from_pr" in base_inputs:
-                base_inputs["from_pr"] = str(pr_number)
+            # Replace placeholders in all input values
+            for key, value in list(base_inputs.items()):
+                base_inputs[key] = replace_placeholders(value, pr_branch, pr_number, base_branch)
             
-            # Handle preset_branches - load branches from file and add to inputs
-            if "preset_branches" in base_inputs:
-                preset_branches_file = base_inputs.pop("preset_branches")  # Remove from inputs
-                # Load branches from file
-                config_dir = os.path.dirname(os.path.abspath(config_path))
-                branches_file_path = os.path.join(config_dir, preset_branches_file)
-                if os.path.exists(branches_file_path):
-                    with open(branches_file_path, 'r') as f:
-                        branches = json.load(f)
-                        if isinstance(branches, dict):
-                            branches = branches.get("branches", [])
-                        # Add branches as comma-separated string for URL
-                        if branches:
-                            base_inputs["available_branches"] = ",".join(branches)
-                else:
-                    # Try relative to current working directory
-                    if os.path.exists(preset_branches_file):
-                        with open(preset_branches_file, 'r') as f:
-                            branches = json.load(f)
-                            if isinstance(branches, dict):
-                                branches = branches.get("branches", [])
-                            if branches:
-                                base_inputs["available_branches"] = ",".join(branches)
+            # Handle file-based input transforms from config
+            input_transforms = block.get("input_transforms", [])
+            config_dir = os.path.dirname(os.path.abspath(config_path))
             
-            badge_color = block.get("badge_color", "4caf50")
-            icon = block.get("icon", "▶")
-            badge_type = block.get("badge_type", "pair")  # "pair" or "table"
+            for transform in input_transforms:
+                source_key = transform.get("source_key")
+                target_key = transform.get("target_key")
+                transform_type = transform.get("type", "comma_separated")
+                data_key = transform.get("data_key")
+                
+                if not source_key or not target_key or source_key not in base_inputs:
+                    continue
+                
+                file_path = base_inputs.pop(source_key)
+                file_data = load_json_file(file_path, config_dir, data_key)
+                
+                if not isinstance(file_data, list):
+                    continue
+                
+                # Transform based on type
+                if transform_type == "json":
+                    base_inputs[target_key] = json.dumps(file_data)
+                else:  # comma_separated (default)
+                    base_inputs[target_key] = ",".join(file_data)
+            
+            badge_color = block.get("badge_color")
+            icon = block.get("icon")
+            badge_type = block.get("badge_type")
             
             if not workflow_id:
                 continue
@@ -141,48 +180,67 @@ def generate_markdown(config_path: str, app_domain: str, repo_owner: str, repo_n
             if badge_type == "table":
                 # Generate table with multiple rows
                 rows_data = block.get("rows", [])
-                branches = block.get("branches", [])
-                branches_file = block.get("branches_file")
                 
-                # Load branches from file if specified
-                if branches_file and not rows_data:
-                    config_dir = os.path.dirname(os.path.abspath(config_path))
-                    branches_file_path = os.path.join(config_dir, branches_file)
-                    if os.path.exists(branches_file_path):
-                        with open(branches_file_path, 'r') as f:
-                            branches = json.load(f)
-                            # Support both array of strings and object with branches array
-                            if isinstance(branches, dict):
-                                branches = branches.get("branches", [])
+                # If rows_data not provided, generate from items_file or items list
+                if not rows_data:
+                    items = []
+                    items_file = block.get("items_file")
+                    
+                    if items_file:
+                        config_dir = os.path.dirname(os.path.abspath(config_path))
+                        items_data_key = block.get("items_data_key")
+                        items = load_json_file(items_file, config_dir, items_data_key)
+                        if not isinstance(items, list):
+                            items = []
                     else:
-                        # Try relative to current working directory
-                        if os.path.exists(branches_file):
-                            with open(branches_file, 'r') as f:
-                                branches = json.load(f)
-                                if isinstance(branches, dict):
-                                    branches = branches.get("branches", [])
+                        items = block.get("items", [])
+                    
+                    # Generate rows_data from items
+                    if items:
+                        label_key = block.get("label_key")
+                        if not label_key:
+                            items = []  # Skip if required config missing
+                        
+                        badge_text = block.get("badge_text")
+                        row_inputs_template = block.get("row_inputs_template", {})
+                        input_key = block.get("input_key")
+                        item_placeholder = block.get("item_placeholder", "{item}")
+                        label_format = block.get("label_format")
+                        
+                        if not row_inputs_template and not input_key:
+                            items = []  # Skip if no way to set inputs
+                        
+                        for item in items:
+                            # Build row inputs
+                            if row_inputs_template:
+                                import copy
+                                row_inputs = copy.deepcopy(row_inputs_template)
+                                for key, value in row_inputs.items():
+                                    # Replace item placeholder first, then other placeholders
+                                    replaced = str(value).replace(item_placeholder, str(item))
+                                    row_inputs[key] = replace_placeholders(replaced, pr_branch, pr_number, base_branch)
+                            else:
+                                row_inputs = {input_key: item}
+                            
+                            # Build row data
+                            formatted_label = (label_format.replace("{value}", str(item)) 
+                                             if label_format else str(item))
+                            
+                            row_data = {
+                                label_key: formatted_label,
+                                "inputs": {**base_inputs, **row_inputs}
+                            }
+                            if badge_text:
+                                row_data["badge_text"] = badge_text
+                            rows_data.append(row_data)
                 
-                # If branches is specified, auto-generate rows
-                if branches and not rows_data:
-                    label_key = block.get("label_key", "branch")
-                    badge_text = block.get("badge_text", "Backport")
-                    for branch in branches:
-                        branch_inputs = {
-                            "source_branch": pr_branch,
-                            "target_branch": branch
-                        }
-                        # Merge with base inputs
-                        branch_inputs = {**base_inputs, **branch_inputs}
-                        rows_data.append({
-                            label_key: f"`{branch}`",
-                            "badge_text": badge_text,
-                            "inputs": branch_inputs
-                        })
-                
-                column_headers = block.get("column_headers", ["Type", "Actions"])
-                label_key = block.get("label_key", "label")
+                column_headers = block.get("column_headers")
+                label_key = block.get("label_key")
                 
                 if rows_data:
+                    if not column_headers or not label_key:
+                        continue  # Skip if required config missing
+                    
                     lines.append("")
                     
                     # Prepare rows for create_table
@@ -204,9 +262,20 @@ def generate_markdown(config_path: str, app_domain: str, repo_owner: str, repo_n
                         })
                     
                     # Formatter function
+                    badge_text_template = block.get("badge_text_template")
+                    label_format_table = block.get("label_format_table")
+                    
                     def formatter(row, gen):
                         label = row["label"]
-                        badge_text = row.get("badge_text") or f"Run {label}"
+                        
+                        # Generate badge text
+                        badge_text = (row.get("badge_text") or 
+                                    (badge_text_template.replace("{label}", label) if badge_text_template else label))
+                        
+                        # Format label for display
+                        label_formatted = (label_format_table.replace("{label}", label) 
+                                         if label_format_table else label)
+                        
                         badges = gen.create_badge_pair(
                             text=badge_text,
                             workflow_id=row["workflow_id"],
@@ -216,9 +285,7 @@ def generate_markdown(config_path: str, app_domain: str, repo_owner: str, repo_n
                             direct_color=row["badge_color"],
                             icon=row["icon"]
                         )
-                        label_formatted = label
-                        if not label.startswith("`") and not label.startswith("**"):
-                            label_formatted = f"**{label}**"
+                        
                         return [label_formatted, badges]
                     
                     table = generator.create_table(
@@ -229,7 +296,16 @@ def generate_markdown(config_path: str, app_domain: str, repo_owner: str, repo_n
                     lines.append(table)
             else:
                 # Generate badge pair (or single UI badge if only_ui is specified)
-                badge_text = title.replace("### ", "").replace("🧪 ", "").replace("🔨 ", "").replace("📦 ", "").strip()
+                badge_text = block.get("badge_text")
+                if not badge_text:
+                    # Derive from title: remove markdown headers and emoji prefixes
+                    badge_text = title.replace("### ", "").strip()
+                    emoji_prefixes = block.get("emoji_prefixes", [])
+                    for prefix in emoji_prefixes:
+                        if badge_text.startswith(prefix):
+                            badge_text = badge_text[len(prefix):].strip()
+                            break
+                
                 only_ui = block.get("only_ui", False)
                 
                 if only_ui:
@@ -269,24 +345,47 @@ def main():
     
     parser = argparse.ArgumentParser(description="Generate markdown text with badges")
     parser.add_argument("--config", required=True, help="Path to JSON config file")
-    parser.add_argument("--app-domain", required=True, help="Base URL of workflow executor app")
-    parser.add_argument("--repo-owner", required=True, help="Repository owner")
-    parser.add_argument("--repo-name", required=True, help="Repository name")
-    parser.add_argument("--pr-number", type=int, required=True, help="PR number")
-    parser.add_argument("--pr-branch", required=True, help="PR branch name")
-    parser.add_argument("--base-branch", required=True, help="Base branch name")
+    parser.add_argument("--vars", required=True, help="Path to JSON file or JSON string with variables: app_domain, repo_owner, repo_name, pr_number, pr_branch, base_branch")
     parser.add_argument("--output", help="Output file path (default: stdout)")
     
     args = parser.parse_args()
     
+    # Load vars - either from file or parse as JSON string
+    vars_data = args.vars
+    # If it looks like JSON (starts with { or [), parse directly
+    if vars_data.strip().startswith(('{', '[')):
+        try:
+            vars_dict = json.loads(vars_data)
+        except json.JSONDecodeError:
+            print(f"Error: Invalid JSON string in --vars", file=sys.stderr)
+            sys.exit(1)
+    elif os.path.exists(vars_data):
+        # It's a file path
+        with open(vars_data, 'r') as f:
+            vars_dict = json.load(f)
+    else:
+        # Try to parse as JSON string anyway
+        try:
+            vars_dict = json.loads(vars_data)
+        except json.JSONDecodeError:
+            print(f"Error: --vars must be either a path to JSON file or valid JSON string", file=sys.stderr)
+            sys.exit(1)
+    
+    # Extract required variables
+    required_vars = ["app_domain", "repo_owner", "repo_name", "pr_number", "pr_branch", "base_branch"]
+    missing_vars = [var for var in required_vars if var not in vars_dict]
+    if missing_vars:
+        print(f"Error: Missing required variables in --vars: {', '.join(missing_vars)}", file=sys.stderr)
+        sys.exit(1)
+    
     markdown = generate_markdown(
         config_path=args.config,
-        app_domain=args.app_domain,
-        repo_owner=args.repo_owner,
-        repo_name=args.repo_name,
-        pr_number=args.pr_number,
-        pr_branch=args.pr_branch,
-        base_branch=args.base_branch
+        app_domain=vars_dict["app_domain"],
+        repo_owner=vars_dict["repo_owner"],
+        repo_name=vars_dict["repo_name"],
+        pr_number=int(vars_dict["pr_number"]),
+        pr_branch=vars_dict["pr_branch"],
+        base_branch=vars_dict["base_branch"]
     )
     
     if args.output:

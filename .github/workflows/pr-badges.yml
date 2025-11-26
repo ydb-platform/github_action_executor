@@ -48,15 +48,22 @@ jobs:
       - name: Generate badge comment
         id: generate_comment
         run: |
+          # Create vars JSON file
+          cat > vars.json << EOF
+          {
+            "app_domain": "${{ env.APP_DOMAIN }}",
+            "repo_owner": "${{ github.repository_owner }}",
+            "repo_name": "${{ github.event.repository.name }}",
+            "pr_number": ${{ github.event.pull_request.number }},
+            "pr_branch": "${{ github.event.pull_request.head.ref }}",
+            "base_branch": "${{ github.event.pull_request.base.ref }}"
+          }
+          EOF
+          
           # Build comment using wrapper script
           python3 .github/scripts/badges/generate_markdown.py \
             --config .github/scripts/badges/configs/badge_config.json \
-            --app-domain "${{ env.APP_DOMAIN }}" \
-            --repo-owner "${{ github.repository_owner }}" \
-            --repo-name "${{ github.event.repository.name }}" \
-            --pr-number ${{ github.event.pull_request.number }} \
-            --pr-branch "${{ github.event.pull_request.head.ref }}" \
-            --base-branch "${{ github.event.pull_request.base.ref }}" \
+            --vars vars.json \
             --output comment.txt
           
           echo "comment_file=comment.txt" >> $GITHUB_OUTPUT
