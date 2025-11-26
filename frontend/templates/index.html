@@ -150,7 +150,7 @@
                 const workflowInputs = {};
                 
                 // Список служебных параметров, которые не являются workflow inputs
-                const excludedParams = ['owner', 'repo', 'workflow_id', 'ref', 'ui', 'tests'];
+                const excludedParams = ['owner', 'repo', 'workflow_id', 'ref', 'ui', 'return_url'];
                 
                 // Извлекаем все параметры кроме служебных
                 for (const [key, value] of urlParams.entries()) {
@@ -1000,6 +1000,24 @@
         
         // Инициализация при загрузке
         function initAll() {
+            // Инициализируем скрытое поле return_url из URL параметров, если его нет
+            const form = document.getElementById('workflowForm');
+            if (form) {
+                const urlParams = new URLSearchParams(window.location.search);
+                const returnUrlFromUrl = urlParams.get('return_url');
+                if (returnUrlFromUrl) {
+                    let returnUrlInput = form.querySelector('input[name="return_url"]');
+                    if (!returnUrlInput) {
+                        // Создаем скрытое поле, если его нет
+                        returnUrlInput = document.createElement('input');
+                        returnUrlInput.type = 'hidden';
+                        returnUrlInput.name = 'return_url';
+                        form.insertBefore(returnUrlInput, form.firstChild);
+                    }
+                    returnUrlInput.value = returnUrlFromUrl;
+                }
+            }
+            
             initSearchableSelect('workflow_search', 'workflow_id', 'workflow_dropdown');
             initSearchableSelect('branch_search', 'ref', 'branch_dropdown');
             setupRepositoryField();

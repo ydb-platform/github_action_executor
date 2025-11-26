@@ -185,7 +185,6 @@ async def trigger_workflow_get(
     repo: str = Query(None),
     workflow_id: str = Query(None),
     ref: str = Query("main"),
-    tests: str = Query(None),
     ui: bool = Query(False)
 ):
     """
@@ -193,7 +192,7 @@ async def trigger_workflow_get(
     
     Примеры:
     - /workflow/trigger?owner=naspirato&repo=my-repo&workflow_id=ci.yml
-    - /workflow/trigger?owner=naspirato&repo=my-repo&workflow_id=ci.yml&ref=main&tests=unit,integration
+    - /workflow/trigger?owner=naspirato&repo=my-repo&workflow_id=ci.yml&ref=main
     """
     # Определяем режим (UI или JSON)
     accept_header = request.headers.get("Accept", "")
@@ -218,14 +217,10 @@ async def trigger_workflow_get(
         
         # Добавляем все остальные параметры (workflow inputs)
         query_params = dict(request.query_params)
-        excluded_params = {"owner", "repo", "workflow_id", "ref", "ui", "tests", "return_url"}
+        excluded_params = {"owner", "repo", "workflow_id", "ref", "ui", "return_url"}
         for key, value in query_params.items():
             if key not in excluded_params and value:
                 params.append(f"{key}={value}")
-        
-        # Если есть tests, добавляем его
-        if tests:
-            params.append(f"tests={tests}")
         
         query_string = "&".join(params)
         return RedirectResponse(url=f"/?{query_string}")
@@ -272,10 +267,6 @@ async def trigger_workflow_get(
         if key not in excluded_params and value:
             inputs[key] = value
     
-    # Если есть tests (для обратной совместимости)
-    if tests:
-        inputs["tests"] = tests
-    
     return await _trigger_and_show_result(
         request, owner, repo, workflow_id, ref, inputs, return_json, return_url
     )
@@ -287,8 +278,7 @@ async def trigger_workflow_post(
     owner: str = Form(None),
     repo: str = Form(None),
     workflow_id: str = Form(None),
-    ref: str = Form("main"),
-    tests: str = Form("")
+    ref: str = Form("main")
 ):
     """
     POST endpoint для запуска workflow из формы
@@ -324,7 +314,7 @@ async def trigger_workflow_post(
     inputs = {}
     
     # Обрабатываем все поля кроме служебных
-    excluded_fields = {"owner", "repo", "workflow_id", "ref", "tests", "return_url"}
+    excluded_fields = {"owner", "repo", "workflow_id", "ref", "return_url"}
     for key, value in form_data.items():
         if key not in excluded_fields:
             # Обработка boolean полей - если значение есть, используем его
@@ -334,10 +324,6 @@ async def trigger_workflow_post(
                 else:
                     inputs[key] = value
             # Если значение пустое, но это может быть необязательное поле - пропускаем
-    
-    # Если есть tests (для обратной совместимости)
-    if tests:
-        inputs["tests"] = tests
     
     return await _trigger_and_show_result(
         request, owner, repo, workflow_id, ref, inputs, return_json=False, return_url=return_url
