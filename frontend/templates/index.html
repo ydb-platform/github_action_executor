@@ -47,6 +47,9 @@
                     </div>
                     <input type="hidden" id="owner" name="owner" value="{{ default_owner or '' }}">
                     <input type="hidden" id="repo" name="repo" value="{{ default_repo or '' }}">
+                    {% if return_url %}
+                    <input type="hidden" name="return_url" value="{{ return_url }}">
+                    {% endif %}
                     </div>
                     
                     <div class="form-group">
@@ -847,9 +850,15 @@
                     const formData = new FormData(form);
                     for (const [key, value] of formData.entries()) {
                         // Пропускаем служебные поля
-                        if (!['owner', 'repo', 'workflow_id', 'ref'].includes(key) && value) {
+                        if (!['owner', 'repo', 'workflow_id', 'ref', 'return_url'].includes(key) && value) {
                             params.append(key, value);
                         }
+                    }
+                    
+                    // Добавляем return_url отдельно, если есть
+                    const returnUrlInput = form.querySelector('input[name="return_url"]');
+                    if (returnUrlInput && returnUrlInput.value) {
+                        params.append('return_url', returnUrlInput.value);
                     }
                 }
             }

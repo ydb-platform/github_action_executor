@@ -32,7 +32,8 @@ async def _trigger_and_show_result(
     workflow_id: str,
     ref: str,
     inputs: dict,
-    return_json: bool = False
+    return_json: bool = False,
+    return_url: str = None
 ):
     """Вспомогательная функция для запуска workflow и показа результата"""
     # Check authentication
@@ -78,7 +79,8 @@ async def _trigger_and_show_result(
                     "repo": repo,
                     "workflow_id": workflow_id,
                     "ref": ref,
-                    "inputs": inputs
+                    "inputs": inputs,
+                    "return_url": return_url
                 }
             )
             # Prevent caching
@@ -139,7 +141,8 @@ async def _trigger_and_show_result(
                 "workflow_url": result.get("workflow_url"),
                 "trigger_time": result.get("trigger_time"),
                 "auto_open_run": config.AUTO_OPEN_RUN,
-                "error": result.get("message") if not result["success"] else None
+                "error": result.get("message") if not result["success"] else None,
+                "return_url": return_url
             }
         )
         # Prevent caching to ensure workflow is triggered on each request
@@ -164,7 +167,8 @@ async def _trigger_and_show_result(
                 "repo": repo,
                 "workflow_id": workflow_id,
                 "ref": ref,
-                "inputs": inputs
+                "inputs": inputs,
+                "return_url": return_url
             }
         )
         # Prevent caching
@@ -207,9 +211,14 @@ async def trigger_workflow_get(
         if ref and ref != "main":
             params.append(f"ref={ref}")
         
+        # Добавляем return_url если есть
+        return_url = request.query_params.get("return_url")
+        if return_url:
+            params.append(f"return_url={return_url}")
+        
         # Добавляем все остальные параметры (workflow inputs)
         query_params = dict(request.query_params)
-        excluded_params = {"owner", "repo", "workflow_id", "ref", "ui", "tests"}
+        excluded_params = {"owner", "repo", "workflow_id", "ref", "ui", "tests", "return_url"}
         for key, value in query_params.items():
             if key not in excluded_params and value:
                 params.append(f"{key}={value}")
@@ -250,11 +259,14 @@ async def trigger_workflow_get(
         response.headers["Expires"] = "0"
         return response
     
+    # Extract return_url before parsing inputs
+    return_url = request.query_params.get("return_url")
+    
     # Parse inputs from query parameters
     # Все параметры кроме служебных считаются inputs
     inputs = {}
     query_params = dict(request.query_params)
-    excluded_params = {"owner", "repo", "workflow_id", "ref", "ui"}
+    excluded_params = {"owner", "repo", "workflow_id", "ref", "ui", "return_url"}
     
     for key, value in query_params.items():
         if key not in excluded_params and value:
@@ -265,7 +277,7 @@ async def trigger_workflow_get(
         inputs["tests"] = tests
     
     return await _trigger_and_show_result(
-        request, owner, repo, workflow_id, ref, inputs, return_json
+        request, owner, repo, workflow_id, ref, inputs, return_json, return_url
     )
 
 
@@ -304,12 +316,15 @@ async def trigger_workflow_post(
             }
         )
     
-    # Получаем все inputs из формы (динамические поля)
+    # Extract return_url from form data
     form_data = await request.form()
+    return_url = form_data.get("return_url")
+    
+    # Получаем все inputs из формы (динамические поля)
     inputs = {}
     
     # Обрабатываем все поля кроме служебных
-    excluded_fields = {"owner", "repo", "workflow_id", "ref", "tests"}
+    excluded_fields = {"owner", "repo", "workflow_id", "ref", "tests", "return_url"}
     for key, value in form_data.items():
         if key not in excluded_fields:
             # Обработка boolean полей - если значение есть, используем его
@@ -325,6 +340,6 @@ async def trigger_workflow_post(
         inputs["tests"] = tests
     
     return await _trigger_and_show_result(
-        request, owner, repo, workflow_id, ref, inputs, return_json=False
+        request, owner, repo, workflow_id, ref, inputs, return_json=False, return_url=return_url
     )
 

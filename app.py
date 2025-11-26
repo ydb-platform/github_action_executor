@@ -84,10 +84,13 @@ async def root(
     default_workflow_id = workflow_id or os.getenv("DEFAULT_WORKFLOW_ID", "")
     default_ref = ref or "main"
     
+    # Извлекаем return_url отдельно
+    return_url = request.query_params.get("return_url")
+    
     # Извлекаем все остальные параметры для предзаполнения workflow inputs
     workflow_inputs = {}
     query_params = dict(request.query_params)
-    excluded_params = {"owner", "repo", "workflow_id", "ref"}
+    excluded_params = {"owner", "repo", "workflow_id", "ref", "return_url"}
     for key, value in query_params.items():
         if key not in excluded_params and value:
             workflow_inputs[key] = value
@@ -114,6 +117,7 @@ async def root(
             "default_workflow_id": default_workflow_id,
             "default_ref": default_ref,
             "workflow_inputs": workflow_inputs,  # Параметры для предзаполнения workflow inputs
+            "return_url": return_url,  # URL для возврата
             "workflows": workflows_list,
             "auto_open_run": config.AUTO_OPEN_RUN
         }

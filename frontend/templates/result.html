@@ -88,6 +88,11 @@
                 </div>
                 
                 <div class="action-links" style="display: flex; margin-top: 12px;">
+                    {% if return_url %}
+                    <a href="{{ return_url }}" target="_blank" class="btn btn-secondary">
+                        ← Back
+                    </a>
+                    {% endif %}
                     {% if workflow_url %}
                     <a href="{{ workflow_url }}" target="_blank" class="btn btn-secondary">
                         View Workflow
@@ -117,6 +122,11 @@
                 {% endif %}
 
                 <div class="action-links">
+                    {% if return_url %}
+                    <a href="{{ return_url }}" target="_blank" class="btn btn-secondary">
+                        ← Back
+                    </a>
+                    {% endif %}
                     {% if owner and repo and workflow_id %}
                     <a href="/?owner={{ owner }}&repo={{ repo }}&workflow_id={{ workflow_id }}{% if ref %}&ref={{ ref }}{% endif %}{% if inputs %}{% for key, value in inputs.items() %}{% if value %}&{{ key }}={{ value|urlencode }}{% endif %}{% endfor %}{% endif %}" class="btn btn-secondary">
                         Try again
