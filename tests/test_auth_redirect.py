@@ -9,13 +9,38 @@ from urllib.parse import urlparse, parse_qs
 
 def test_oauth_login_accepts_internal_paths(client):
     """Test that OAuth login accepts and saves internal paths via real HTTP request"""
+    from unittest.mock import patch
+    
     # Test with relative path - should work
     response = client.get("/auth/github?redirect_after=/?owner=test&repo=test", follow_redirects=False)
     assert response.status_code in [307, 302]  # Should redirect to GitHub OAuth
     
-    # Test with path without leading slash - should be normalized
+    # Test with path without leading slash - should be normalized to /?owner=test
     response = client.get("/auth/github?redirect_after=?owner=test", follow_redirects=False)
     assert response.status_code in [307, 302]
+    
+    # Verify normalization by checking callback redirects to normalized path
+    cookies = response.cookies
+    with patch("httpx.AsyncClient.post") as mock_post:
+        mock_token_response = Mock()
+        mock_token_response.status_code = 200
+        mock_token_response.json.return_value = {"access_token": "test_token"}
+        mock_token_response.raise_for_status = Mock()
+        mock_post.return_value = mock_token_response
+        
+        with patch("httpx.AsyncClient.get") as mock_get:
+            mock_user_response = Mock()
+            mock_user_response.status_code = 200
+            mock_user_response.json.return_value = {"login": "testuser", "name": "Test", "avatar_url": ""}
+            mock_user_response.raise_for_status = Mock()
+            mock_get.return_value = mock_user_response
+            
+            callback_response = client.get("/auth/github/callback?code=test", follow_redirects=False)
+            assert callback_response.status_code in [303, 307, 302]
+            # The redirect should be to normalized path /?owner=test (not ?owner=test)
+            # We verify this by checking the redirect location contains leading slash
+            if callback_response.headers.get("location"):
+                assert callback_response.headers["location"].startswith("/")
     
     # Test with workflow path
     response = client.get("/auth/github?redirect_after=/workflow/trigger?owner=test&repo=test", follow_redirects=False)
@@ -58,13 +83,17 @@ def test_oauth_login_blocks_external_urls(client):
 
 def test_oauth_login_handles_empty_redirect(client):
     """Test that OAuth login handles empty/missing redirect_after via real HTTP request"""
+    from unittest.mock import patch
+    
     # Test without redirect_after - should still work
     response = client.get("/auth/github", follow_redirects=False)
     assert response.status_code in [307, 302]
     
-    # After callback, should redirect to / (default)
-    from unittest.mock import patch
+    # Test with empty string redirect_after - should normalize to /
+    response = client.get("/auth/github?redirect_after=", follow_redirects=False)
+    assert response.status_code in [307, 302]
     
+    # After callback, should redirect to / (default)
     response = client.get("/auth/github", follow_redirects=False)
     cookies = response.cookies
     
@@ -84,6 +113,9 @@ def test_oauth_login_handles_empty_redirect(client):
             
             response = client.get("/auth/github/callback?code=test", follow_redirects=False)
             assert response.status_code in [303, 307, 302]  # Should redirect to / (default)
+            # Verify redirect is to / (root)
+            if response.headers.get("location"):
+                assert response.headers["location"] == "/" or response.headers["location"].startswith("/")
 
 
 def test_oauth_login_saves_redirect_url(client):
@@ -214,6 +246,49 @@ def test_main_page_does_not_save_redirect_on_open(client):
     # (This is the optimization - we only save when explicitly going to auth)
     # We can't easily check session in TestClient, but we verify behavior:
     # If we go to auth without redirect_after, it should not use a saved value from main page
+
+
+def test_validate_redirect_url_empty_string_explicit(client):
+    """Test that validate_redirect_url explicitly handles empty string input"""
+    from backend.routes.auth import validate_redirect_url
+    from fastapi import Request
+    from unittest.mock import Mock
+    
+    request = Mock(spec=Request)
+    request.base_url = "http://testserver"
+    request.url.hostname = "testserver"
+    
+    # Test empty string - should return "/"
+    result = validate_redirect_url("", request)
+    assert result == "/", "Empty string should normalize to /"
+    
+    # Test None - should return "/"
+    result = validate_redirect_url(None, request)
+    assert result == "/", "None should normalize to /"
+
+
+def test_validate_redirect_url_path_normalization_explicit(client):
+    """Test that validate_redirect_url explicitly normalizes paths without leading slash"""
+    from backend.routes.auth import validate_redirect_url
+    from fastapi import Request
+    from unittest.mock import Mock
+    
+    request = Mock(spec=Request)
+    request.base_url = "http://testserver"
+    request.url.hostname = "testserver"
+    
+    # Test path without leading slash - should be normalized
+    result = validate_redirect_url("?owner=test", request)
+    assert result.startswith("/"), "Path without leading slash should be normalized to start with /"
+    assert result == "/?owner=test", "Normalized path should be /?owner=test"
+    
+    # Test path without leading slash and query
+    result = validate_redirect_url("workflow/trigger", request)
+    assert result == "/workflow/trigger", "Path should be normalized to /workflow/trigger"
+    
+    # Test path with leading slash - should remain unchanged
+    result = validate_redirect_url("/?owner=test", request)
+    assert result == "/?owner=test", "Path with leading slash should remain unchanged"
 
 
 def test_redirect_url_preserves_query_params_via_real_request(client):

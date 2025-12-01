@@ -175,7 +175,7 @@
                     })
                     .then(data => {
                         if (data.found && data.run_url) {
-                            // Нашли run!
+                            // Found run!
                             const loader = document.getElementById('run-loader');
                             const actionLinks = document.getElementById('action-links');
                             
@@ -183,7 +183,7 @@
                             if (actionLinks) {
                                 actionLinks.style.display = 'flex';
                                 
-                                // Создаем или обновляем ссылку
+                                // Create or update the link
                                 let runLink = document.getElementById('run-link');
                                 if (!runLink) {
                                     runLink = document.createElement('a');
@@ -199,13 +199,13 @@
                                 }
                             }
                             
-                            // Убеждаемся, что второй ряд кнопок виден
+                            // Ensure the second row of buttons is visible
                             const secondRow = actionLinks ? actionLinks.nextElementSibling : null;
                             if (secondRow && secondRow.classList.contains('action-links')) {
                                 secondRow.style.display = 'flex';
                             }
                         } else if (attempts < maxAttempts) {
-                            // Продолжаем опрос
+                            // Continue polling
                             setTimeout(findRun, pollInterval);
                         } else {
                             // Exceeded attempt limit
@@ -214,7 +214,7 @@
                                 loader.innerHTML = '<p class="loading-message">Failed to find run. <a href="' + workflowUrl + '" target="_blank" style="color: #000; text-decoration: underline;">Open workflow list</a></p>';
                             }
                             
-                            // Показываем кнопки даже если не нашли run
+                            // Show buttons even if run was not found
                             const actionLinks = document.getElementById('action-links');
                             if (actionLinks) {
                                 actionLinks.style.display = 'flex';
@@ -234,7 +234,7 @@
                     });
             }
             
-            // Начинаем поиск через небольшую задержку
+            // Start search after a short delay
             setTimeout(findRun, 500);
         })();
     </script>

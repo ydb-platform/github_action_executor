@@ -1004,9 +1004,9 @@
             }
         }
         
-        // Инициализация при загрузке
+        // Initialize on page load
         function initAll() {
-            // Обновляем ссылку на авторизацию, чтобы она передавала текущий URL с параметрами
+            // Update the authorization link to pass the current URL with parameters
             const authLink = document.getElementById('auth-link');
             if (authLink && window.location.search) {
                 const currentUrl = window.location.href;
@@ -1014,7 +1014,7 @@
                 authLink.href = `/auth/github?redirect_after=${redirectAfter}`;
             }
             
-            // Инициализируем скрытое поле return_url из URL параметров, если его нет
+            // Initialize the hidden return_url field from URL parameters if not present
             const form = document.getElementById('workflowForm');
             if (form) {
                 const urlParams = new URLSearchParams(window.location.search);
@@ -1022,7 +1022,7 @@
                 if (returnUrlFromUrl) {
                     let returnUrlInput = form.querySelector('input[name="return_url"]');
                     if (!returnUrlInput) {
-                        // Создаем скрытое поле, если его нет
+                        // Create hidden field if it doesn't exist
                         returnUrlInput = document.createElement('input');
                         returnUrlInput.type = 'hidden';
                         returnUrlInput.name = 'return_url';
